@@ -21,6 +21,7 @@ import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.axis.NumberTickUnit;
 import org.jfree.chart.plot.XYPlot;
+import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 
@@ -30,20 +31,46 @@ import java.awt.GridBagLayout;
 import java.awt.GridBagConstraints;
 import java.awt.Insets;
 import javax.swing.SwingConstants;
-import javax.swing.JToggleButton;
+
 
 public class Graph {
+	static final int CHANNEL1 = 0;
+	static final int CHANNEL2 = 1;
+	static final int BOTH = 2;
 
 	static SerialPort chosenPort;
 	static int x = 0;
-	static int nrLevels = 256;
+	static int nrLevels = 256; //ADC 8 bit resolution
 	static float fullScale = (float) 5.0;
-	static int nrSamples = 1000;
+	static int nrSamples = 512;
+	static int index1 = 0;
+	static int triggerIndex1 = 0;
+	static int index2 = 0;
+	static int triggerIndex2 = 0;
+	static boolean triggerFlag = true;
+	static int[] bufferChannel1 = new int[nrSamples];
+	static int[] bufferChannel2 = new int[nrSamples];
+	static int selectedChannel = CHANNEL1;
+
 	static int nrDiv = 10;
 	static final int TRIGGER_MIN = 0;
 	static final int TRIGGER_MAX = 50;
 	static final int TRIGGER_INIT = 25;    //initial value of slider
 	static float triggerValue = (float)2.5;
+
+	static XYSeries channel1;
+	static XYSeries channel2;
+
+	static XYSeriesCollection data1;
+	static XYSeriesCollection data2;
+
+
+	static JFreeChart chart;
+
+	static int current1 = 0;
+	static int next1 = 0; 
+	static int current2 = 0;
+	static int next2 = 0; 
 
 	public static void main(String[] args) {
 		// create and configure the window
@@ -120,7 +147,7 @@ public class Graph {
 		gbc_triggerLabel.gridy = 0;
 		east.add(triggerLabel, gbc_triggerLabel);
 		triggerLabel.setLabelFor(trigger);
-		
+
 		/*JToggleButton toggleTrigger = new JToggleButton("ASC/DESC");
 		GridBagConstraints gbc_toggleTrigger = new GridBagConstraints();
 		gbc_toggleTrigger.insets = new Insets(0, 0, 5, 0);
@@ -134,9 +161,31 @@ public class Graph {
 
 
 		//create the line graph
-		XYSeries channel1 = new XYSeries("Channel 1", true, false);
-		XYSeriesCollection data = new XYSeriesCollection(channel1);
-		JFreeChart chart = ChartFactory.createXYLineChart("Oscilloscope", "", "", data);
+		channel1 = new XYSeries("Channel 1", true, false);
+		channel2 = new XYSeries("Channel 2", true, false);
+
+		data1 = new XYSeriesCollection();
+		data2 = new XYSeriesCollection();
+
+
+		chart = ChartFactory.createXYLineChart("Oscilloscope", "", "", data1);
+
+		data1.addSeries(channel1);
+		data2.addSeries(channel2);
+
+		chart.getXYPlot().setDataset(0, data1);
+		chart.getXYPlot().setDataset(1, data2);
+
+		XYLineAndShapeRenderer renderer0 = new XYLineAndShapeRenderer(); 
+		XYLineAndShapeRenderer renderer1 = new XYLineAndShapeRenderer(); 
+		chart.getXYPlot().setRenderer(0, renderer0); 
+		renderer0.setBaseShapesVisible(false);
+		chart.getXYPlot().setRenderer(1, renderer1);
+		renderer1.setBaseShapesVisible(false);
+		chart.getXYPlot().getRendererForDataset(chart.getXYPlot().getDataset(0)).setSeriesPaint(0, Color.red); 	
+		chart.getXYPlot().getRendererForDataset(chart.getXYPlot().getDataset(1)).setSeriesPaint(0, Color.blue); 	
+
+
 		window.getContentPane().add(new ChartPanel(chart), BorderLayout.CENTER);
 		XYPlot xyPlot = (XYPlot) chart.getPlot();
 		NumberAxis domain = (NumberAxis) xyPlot.getDomainAxis();
@@ -156,7 +205,7 @@ public class Graph {
 
 					chosenPort = SerialPort.getCommPort(portList.getSelectedItem().toString());
 					chosenPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
-					chosenPort.setBaudRate(115200);
+					chosenPort.setBaudRate(230400);
 					if(chosenPort.openPort()) {
 						System.out.println(chosenPort.getBaudRate());
 						connect.setText("Disconnect");
@@ -166,37 +215,72 @@ public class Graph {
 						@Override public void run() {
 
 							Scanner scanner = new Scanner(chosenPort.getInputStream());
-							float current = (float) 0.0;
-							float next = (float) 0.0;
+
 							String line = null;
-							Integer number = 0;
+
 
 							if(scanner.hasNextLine()) {
 								line = scanner.nextLine();
-								current = (float)(number * fullScale / nrLevels);
+								current1 = Integer.parseInt(line);
+								bufferChannel1[(index1++) % nrSamples] = current1;
 							}
 
 
 							while(scanner.hasNextLine()) {
 								try {
 									line = scanner.nextLine();
-									number = Integer.parseInt(line);
-									next = (float) number * fullScale / nrLevels;
-									System.out.println(current);
-									System.out.println(triggerValue);
-									if(current > triggerValue*0.98 && current < triggerValue*1.02 && next > current) {
-										System.out.println("FEZ TRIGGER");
-										x = 0;
+
+									switch(selectedChannel) {
+									case CHANNEL1:
+										next1 = Integer.parseInt(line); 
+										bufferChannel1[(index1++) % nrSamples] = next1;
+										if(triggerFlag && current1 > (int)(triggerValue * nrLevels / fullScale) - 2 && current1 < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next1 > current1) {
+											triggerIndex1 = index1 - 1;
+											triggerFlag = false;
+										}
+										if(index1 == nrSamples) {	// buffer is full, restart
+											triggerFlag = true;
+											index1 = 0;
+											drawChannel(CHANNEL1, triggerIndex1);
+										}
+										current1 = next1;
+										break;
+									case CHANNEL2:
+										next2 = Integer.parseInt(line); 
+										bufferChannel2[(index2++) % nrSamples] = next2;
+										if(triggerFlag && current2 > (int)(triggerValue * nrLevels / fullScale) - 2 && current2 < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next2 > current2) {
+											triggerIndex2 = index2 - 1;
+											triggerFlag = false;
+										}
+										if(index2 == nrSamples) {	// buffer is full, restart
+											triggerFlag = true;
+											index2 = 0;
+											drawChannel(CHANNEL2, triggerIndex2);
+										}
+										current2 = next2;
+										break;
+									case BOTH: 
+										if(index1 < index2) {
+											next1 = Integer.parseInt(line); 
+											bufferChannel1[(index1++) % nrSamples] = next1;
+										}
+										else {
+											next2 = Integer.parseInt(line); 
+											bufferChannel2[(index2++) % nrSamples] = next2;
+										}
+										if(triggerFlag && current1 > (int)(triggerValue * nrLevels / fullScale) - 2 && current1 < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next1 > current1) {
+											triggerIndex1 = index1 - 1;
+											triggerFlag = false;
+										}
+										if(index2 == nrSamples) {	// buffer is full, restart
+											triggerFlag = true;
+											index1 = 0;
+											index2 = 0;
+											drawChannel(BOTH, triggerIndex1);
+										}
+										current1 = next1;
+										break;
 									}
-
-									channel1.addOrUpdate(x*0.9, current);
-									x++;
-
-									if(x > nrSamples) { 
-										x = 0;
-									}
-
-									current = next;
 								} catch(Exception e) {
 
 								}
@@ -215,5 +299,18 @@ public class Graph {
 		});
 
 		window.setVisible(true);
+	}
+	static void drawChannel(int channelID, int triggerIndex) {
+		//channelID 0 -> channel1 / 1 -> channel2 / 2 -> both channels
+		int x = 0;
+		for(int i = triggerIndex; i <= triggerIndex + nrSamples/2; i++) {
+			switch(channelID) {
+			case CHANNEL1: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); break;
+			case CHANNEL2: channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); break;
+			case BOTH: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); 
+			channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); 
+			break;
+			}
+		}
 	}
 }
