@@ -43,14 +43,14 @@ public class Graph {
 	static int nrLevels = 256; //ADC 8 bit resolution
 	static float fullScale = (float) 5.0;
 	static int nrSamples = 512;
-	static int index1 = 0;
-	static int triggerIndex1 = 0;
-	static int index2 = 0;
-	static int triggerIndex2 = 0;
+	static int toggleCount = 0;
+	static int index = 0;
+	static int triggerIndex = 0;
 	static boolean triggerFlag = true;
 	static int[] bufferChannel1 = new int[nrSamples];
 	static int[] bufferChannel2 = new int[nrSamples];
-	static int selectedChannel = CHANNEL1;
+	static int selectedChannel = BOTH;
+	static int selectedTriggerChannel = CHANNEL1;
 
 	static int nrDiv = 10;
 	static final int TRIGGER_MIN = 0;
@@ -67,10 +67,10 @@ public class Graph {
 
 	static JFreeChart chart;
 
-	static int current1 = 0;
-	static int next1 = 0; 
-	static int current2 = 0;
-	static int next2 = 0; 
+	static int current = 0;
+	static int next = 0; 
+	static int receiving = -1; //256 -> channel 1 / 257 -> channel 2
+	static int state = 0;
 
 	public static void main(String[] args) {
 		// create and configure the window
@@ -202,7 +202,7 @@ public class Graph {
 			public void actionPerformed(ActionEvent arg0) {
 				if(connect.getText().equals("Connect")) {
 					channel1.clear();
-
+					channel2.clear();
 					chosenPort = SerialPort.getCommPort(portList.getSelectedItem().toString());
 					chosenPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
 					chosenPort.setBaudRate(230400);
@@ -219,66 +219,80 @@ public class Graph {
 							String line = null;
 
 
-							if(scanner.hasNextLine()) {
-								line = scanner.nextLine();
-								current1 = Integer.parseInt(line);
-								bufferChannel1[(index1++) % nrSamples] = current1;
+							try {
+								if(scanner.hasNextLine()) {
+									line = scanner.nextLine();
+									current = Integer.parseInt(line);
+									bufferChannel1[(index++) % nrSamples] = current;
+								}
+							}
+							catch(Exception e1){
+
 							}
 
 
 							while(scanner.hasNextLine()) {
 								try {
 									line = scanner.nextLine();
+									next = Integer.parseInt(line); 
 
 									switch(selectedChannel) {
 									case CHANNEL1:
-										next1 = Integer.parseInt(line); 
-										bufferChannel1[(index1++) % nrSamples] = next1;
-										if(triggerFlag && current1 > (int)(triggerValue * nrLevels / fullScale) - 2 && current1 < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next1 > current1) {
-											triggerIndex1 = index1 - 1;
+										bufferChannel1[(index++) % nrSamples] = next;
+										if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
+											triggerIndex = index - 1;
 											triggerFlag = false;
 										}
-										if(index1 == nrSamples) {	// buffer is full, restart
+										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
-											index1 = 0;
-											drawChannel(CHANNEL1, triggerIndex1);
+											index = 0;
+											drawChannel(CHANNEL1, triggerIndex);
 										}
-										current1 = next1;
+										current = next;
 										break;
 									case CHANNEL2:
-										next2 = Integer.parseInt(line); 
-										bufferChannel2[(index2++) % nrSamples] = next2;
-										if(triggerFlag && current2 > (int)(triggerValue * nrLevels / fullScale) - 2 && current2 < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next2 > current2) {
-											triggerIndex2 = index2 - 1;
+										bufferChannel2[(index++) % nrSamples] = next;
+										if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
+											triggerIndex = index - 1;
 											triggerFlag = false;
 										}
-										if(index2 == nrSamples) {	// buffer is full, restart
+										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
-											index2 = 0;
-											drawChannel(CHANNEL2, triggerIndex2);
+											index = 0;
+											drawChannel(CHANNEL2, triggerIndex);
 										}
-										current2 = next2;
+										current = next;
 										break;
 									case BOTH: 
-										if(index1 < index2) {
-											next1 = Integer.parseInt(line); 
-											bufferChannel1[(index1++) % nrSamples] = next1;
+										if(state == 0) {
+											if(next == 256 || next == 257) { //flag
+												System.out.println(next);
+												receiving  = next;
+												state = 1;
+											}
 										}
-										else {
-											next2 = Integer.parseInt(line); 
-											bufferChannel2[(index2++) % nrSamples] = next2;
+										else if(state == 1) {
+											if(receiving == 256) {
+												bufferChannel1[(index++) % (nrSamples)] = next;
+											}
+											else if(receiving == 257){
+												bufferChannel2[(index++) % (nrSamples)] = next;
+												//System.out.println("escrevendo no buffer 2");
+											}
+											
+											if(index == nrSamples - 1) {
+												index = 0;
+												state = 0;
+												if(toggleCount == 1) {
+													toggleCount = 0;
+													drawChannel(BOTH, 2);
+													continue;
+												}
+												toggleCount ++;		
+												drawChannel(BOTH, 2);
+
+											}
 										}
-										if(triggerFlag && current1 > (int)(triggerValue * nrLevels / fullScale) - 2 && current1 < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next1 > current1) {
-											triggerIndex1 = index1 - 1;
-											triggerFlag = false;
-										}
-										if(index2 == nrSamples) {	// buffer is full, restart
-											triggerFlag = true;
-											index1 = 0;
-											index2 = 0;
-											drawChannel(BOTH, triggerIndex1);
-										}
-										current1 = next1;
 										break;
 									}
 								} catch(Exception e) {
@@ -307,7 +321,7 @@ public class Graph {
 			switch(channelID) {
 			case CHANNEL1: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); break;
 			case CHANNEL2: channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); break;
-			case BOTH: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); 
+			case BOTH: channel1.addOrUpdate((x) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); 
 			channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); 
 			break;
 			}
