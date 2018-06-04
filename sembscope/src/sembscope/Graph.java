@@ -8,11 +8,14 @@ import java.io.IOException;
 import java.util.Scanner;
 
 import javax.swing.Box;
+import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JRadioButton;
 import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.event.ChangeEvent;
@@ -40,6 +43,7 @@ import java.awt.Insets;
 import java.awt.Rectangle;
 
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 
 
 public class Graph {
@@ -48,17 +52,27 @@ public class Graph {
 	static final byte BOTH = 2;
 	static final byte NONE = 3;
 	static final byte ASC = 4;
-	static final byte DESC = 5;
+	static final byte DSC = 5;
+	static final byte STOP = 6;
+	static final byte START = 7;
+	static final double verticalMAX = 4.0;
+	static final double verticalMIN = 0.25;
+	static final int horizontalMAX = 15;
+	static final int horizontalMIN = 1;
+	static int periodPerSample = 300; //in us
+
 
 	static SerialPort chosenPort;
 	static int x = 0;
 	static int nrLevels = 256; //ADC 8 bit resolution
 	static float fullScale = (float) 5.0;
 	static int nrSamples = 512;
+	static int nrSamplesToDraw = 166;
 	static int toggleCount = 0;
 	static int index = 0;
 	static int triggerIndex = 0;
 	static int selectedTriggerMode = ASC;
+	static int run = START;
 	static boolean triggerFlag = true;
 	static int[] bufferChannel1 = new int[nrSamples];
 	static int[] bufferChannel2 = new int[nrSamples];
@@ -66,10 +80,22 @@ public class Graph {
 	static int selectedTriggerChannel = CHANNEL1;
 
 	static int nrDiv = 10;
+	static int Amplitude = 8;
+	static double voltPerDivCH1 = 1.0;
+	static double voltPerDivCH2 = 1.0;
+	static int secondsPerDiv = 5;
+	static double factorVertical = 2.0;
+	static double factorHoriontal = 2.0;
 	static final int TRIGGER_MIN = 0;
 	static final int TRIGGER_MAX = 80;
 	static final int TRIGGER_INIT = 40;    //initial value of slider
 	static float triggerValue = (float)4.0;
+	static int channel1Min = 0;
+	static int channel1Max = 80;
+	static int ch1PosValue = 0;
+	static int channel2Min = 0;
+	static int channel2Max = 80;
+	static int ch2PosValue = 0;
 
 	static XYSeries channel1;
 	static XYSeries channel2;
@@ -91,7 +117,7 @@ public class Graph {
 	public static void main(String[] args) {
 		// create and configure the window
 		JFrame window = new JFrame();
-		window.setTitle("SEMBscope");
+		window.setTitle("SEMBScope");
 		window.setBounds(150, 50, 1000, 685);
 		window.getContentPane().setLayout(new BorderLayout());
 		window.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -115,12 +141,12 @@ public class Graph {
 		JPanel east = new JPanel();
 		window.getContentPane().add(east, BorderLayout.EAST);
 		GridBagLayout gbl_east = new GridBagLayout();
-		gbl_east.columnWidths = new int[]{0, 0, 0, 0, 11, 60, 18, 0};
+		gbl_east.columnWidths = new int[]{0, 0, 0, 0, 11, 60, 18, 0, 0};
 		gbl_east.rowHeights = new int[]{32, 24, 41, 20, 37, 12, 36, 30, 35, 29, 0, 14, 38, 0, 0};
-		gbl_east.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE};
+		gbl_east.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, Double.MIN_VALUE};
 		gbl_east.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
 		east.setLayout(gbl_east);
-		
+
 		Component horizontalStrut_1 = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut_1 = new GridBagConstraints();
 		gbc_horizontalStrut_1.insets = new Insets(0, 0, 5, 5);
@@ -128,21 +154,98 @@ public class Graph {
 		gbc_horizontalStrut_1.gridy = 0;
 		east.add(horizontalStrut_1, gbc_horizontalStrut_1);
 
-		Component verticalStrut = Box.createVerticalStrut(20);
-		GridBagConstraints gbc_verticalStrut = new GridBagConstraints();
-		gbc_verticalStrut.gridheight = 14;
-		gbc_verticalStrut.insets = new Insets(0, 0, 0, 5);
-		gbc_verticalStrut.gridx = 4;
-		gbc_verticalStrut.gridy = 0;
-		east.add(verticalStrut, gbc_verticalStrut);
+		JLabel lblCH1Resolution = new JLabel("Volt/div CH1");
+		GridBagConstraints gbc_lblCH1Resolution = new GridBagConstraints();
+		gbc_lblCH1Resolution.fill = GridBagConstraints.VERTICAL;
+		gbc_lblCH1Resolution.gridwidth = 2;
+		gbc_lblCH1Resolution.insets = new Insets(0, 0, 5, 5);
+		gbc_lblCH1Resolution.gridx = 1;
+		gbc_lblCH1Resolution.gridy = 0;
+		east.add(lblCH1Resolution, gbc_lblCH1Resolution);
+
+		JPanel panelScaleCH1 = new JPanel();
+		GridBagConstraints gbc_panelScaleCH1 = new GridBagConstraints();
+		gbc_panelScaleCH1.gridheight = 15;
+		gbc_panelScaleCH1.insets = new Insets(0, 0, 5, 5);
+		gbc_panelScaleCH1.fill = GridBagConstraints.BOTH;
+		gbc_panelScaleCH1.gridx = 4;
+		gbc_panelScaleCH1.gridy = 0;
+		east.add(panelScaleCH1, gbc_panelScaleCH1);
+		GridBagLayout gbl_panelScaleCH1 = new GridBagLayout();
+		gbl_panelScaleCH1.columnWidths = new int[]{0, 0};
+		gbl_panelScaleCH1.rowHeights = new int[]{20, 0, 0, 0, 0, 0, 0, 0};
+		gbl_panelScaleCH1.columnWeights = new double[]{0.0, Double.MIN_VALUE};
+		gbl_panelScaleCH1.rowWeights = new double[]{0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		panelScaleCH1.setLayout(gbl_panelScaleCH1);
+
+		JLabel lblPositionCH1 = new JLabel("POS CH1");
+		GridBagConstraints gbc_lblPositionCH1 = new GridBagConstraints();
+		gbc_lblPositionCH1.insets = new Insets(0, 0, 5, 0);
+		gbc_lblPositionCH1.gridx = 0;
+		gbc_lblPositionCH1.gridy = 0;
+		panelScaleCH1.add(lblPositionCH1, gbc_lblPositionCH1);
+
+		JSlider sliderCH1Pos = new JSlider(JSlider.VERTICAL, channel1Min, channel1Max, channel1Min);
+		sliderCH1Pos.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent event) {
+				ch1PosValue = (int) ((JSlider) event.getSource()).getValue()/10;
+				//System.out.println(triggerValue);
+			}
+		});
+		GridBagConstraints gbc_sliderCH1Pos = new GridBagConstraints();
+		gbc_sliderCH1Pos.fill = GridBagConstraints.VERTICAL;
+		gbc_sliderCH1Pos.gridheight = 6;
+		gbc_sliderCH1Pos.insets = new Insets(0, 0, 5, 0);
+		gbc_sliderCH1Pos.gridx = 0;
+		gbc_sliderCH1Pos.gridy = 1;
+		panelScaleCH1.add(sliderCH1Pos, gbc_sliderCH1Pos);
+		sliderCH1Pos.setMajorTickSpacing(10);
+		sliderCH1Pos.setMinorTickSpacing(5);
+
+		JPanel panelScaleCH2 = new JPanel();
+		GridBagConstraints gbc_panelScaleCH2 = new GridBagConstraints();
+		gbc_panelScaleCH2.gridheight = 15;
+		gbc_panelScaleCH2.insets = new Insets(0, 0, 5, 5);
+		gbc_panelScaleCH2.fill = GridBagConstraints.BOTH;
+		gbc_panelScaleCH2.gridx = 5;
+		gbc_panelScaleCH2.gridy = 0;
+		east.add(panelScaleCH2, gbc_panelScaleCH2);
+		GridBagLayout gbl_panelScaleCH2 = new GridBagLayout();
+		gbl_panelScaleCH2.columnWidths = new int[]{0, 0};
+		gbl_panelScaleCH2.rowHeights = new int[]{0, 0, 0, 0, 0, 0, 0, 0};
+		gbl_panelScaleCH2.columnWeights = new double[]{0.0, Double.MIN_VALUE};
+		gbl_panelScaleCH2.rowWeights = new double[]{0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		panelScaleCH2.setLayout(gbl_panelScaleCH2);
+
+		JLabel lblPositionCH2 = new JLabel("POS CH2");
+		GridBagConstraints gbc_lblPositionCH2 = new GridBagConstraints();
+		gbc_lblPositionCH2.insets = new Insets(0, 0, 5, 0);
+		gbc_lblPositionCH2.gridx = 0;
+		gbc_lblPositionCH2.gridy = 0;
+		panelScaleCH2.add(lblPositionCH2, gbc_lblPositionCH2);
+
+		JSlider sliderCH2Pos = new JSlider(JSlider.VERTICAL, channel2Min, channel2Max, channel2Min);
+		sliderCH1Pos.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent event) {
+				ch2PosValue = (int) ((JSlider) event.getSource()).getValue()/10;
+				//System.out.println(triggerValue);
+			}
+		});
+		GridBagConstraints gbc_sliderCH2Pos = new GridBagConstraints();
+		gbc_sliderCH2Pos.fill = GridBagConstraints.VERTICAL;
+		gbc_sliderCH2Pos.gridheight = 6;
+		gbc_sliderCH2Pos.insets = new Insets(0, 0, 5, 0);
+		gbc_sliderCH2Pos.gridx = 0;
+		gbc_sliderCH2Pos.gridy = 1;
+		panelScaleCH2.add(sliderCH2Pos, gbc_sliderCH2Pos);
 
 		//create trigger panel
 		JPanel triggerPanel = new JPanel();
 		GridBagConstraints gbc_triggerPanel = new GridBagConstraints();
-		gbc_triggerPanel.insets = new Insets(0, 0, 0, 5);
-		gbc_triggerPanel.gridheight = 14;
+		gbc_triggerPanel.insets = new Insets(0, 0, 5, 5);
+		gbc_triggerPanel.gridheight = 15;
 		gbc_triggerPanel.fill = GridBagConstraints.BOTH;
-		gbc_triggerPanel.gridx = 5;
+		gbc_triggerPanel.gridx = 6;
 		gbc_triggerPanel.gridy = 0;
 		east.add(triggerPanel, gbc_triggerPanel);
 		GridBagLayout gbl_triggerPanel = new GridBagLayout();
@@ -175,97 +278,152 @@ public class Graph {
 		trigger.setBackground(new Color(238, 238, 238));
 		trigger.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent event) {
-				triggerValue = (float)trigger.getValue()/10;
-				//System.out.println(triggerValue);
+					triggerValue = (float) (trigger.getValue()/10.0);
+				System.out.println(triggerValue);
 			}
 		});
-		
-		triggerLabel.setLabelFor(trigger);
 
-		JToggleButton tglbtnAsc = new JToggleButton("ASC");
-		tglbtnAsc.addChangeListener(new ChangeListener() {
-			public void stateChanged(ChangeEvent e) {
-				JToggleButton aux = (JToggleButton) e.getSource();
-				if(aux.isSelected()) {
-					//TODO button is selected --> change trigger to dsc
-					aux.setText("DSC");
+		JLabel lblVoltsDivCH1 = new JLabel();
+		lblVoltsDivCH1.setText(voltPerDivCH1 + " V/div");
+
+		JButton buttonMinusCH1 = new JButton("-");
+		buttonMinusCH1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				JFrame frame = (JFrame) SwingUtilities.getRoot((JButton)arg0.getSource());
+				if(voltPerDivCH1 == verticalMAX) {
+					JOptionPane.showMessageDialog(frame, "Volts/Div at limit", "Alert", JOptionPane.WARNING_MESSAGE);
 				}
 				else {
-					//TODO button is unselected --> change trigger to asc
-					aux.setText("ASC");
+					voltPerDivCH1 *= factorVertical;
+					lblVoltsDivCH1.setText(1.0/voltPerDivCH1 + " V/div");
+					if(selectedTriggerChannel == CHANNEL1)
+						trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
+					else if(selectedTriggerChannel == CHANNEL2)
+						trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
 				}
 			}
 		});
-		tglbtnAsc.setFocusable(false);
-		GridBagConstraints gbc_tglbtnAsc = new GridBagConstraints();
-		gbc_tglbtnAsc.gridx = 0;
-		gbc_tglbtnAsc.gridy = 8;
-		triggerPanel.add(tglbtnAsc, gbc_tglbtnAsc);
+		GridBagConstraints gbc_buttonMinusCH1 = new GridBagConstraints();
+		gbc_buttonMinusCH1.anchor = GridBagConstraints.NORTH;
+		gbc_buttonMinusCH1.insets = new Insets(0, 0, 5, 5);
+		gbc_buttonMinusCH1.gridx = 1;
+		gbc_buttonMinusCH1.gridy = 1;
+		east.add(buttonMinusCH1, gbc_buttonMinusCH1);
 
-		Component horizontalStrut = Box.createHorizontalStrut(20);
-		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
-		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 0);
-		gbc_horizontalStrut.gridx = 6;
-		gbc_horizontalStrut.gridy = 1;
-		east.add(horizontalStrut, gbc_horizontalStrut);
 
-		JLabel lblVerticalAxis = new JLabel("Vertical axis");
-		GridBagConstraints gbc_lblVerticalAxis = new GridBagConstraints();
-		gbc_lblVerticalAxis.fill = GridBagConstraints.VERTICAL;
-		gbc_lblVerticalAxis.gridwidth = 2;
-		gbc_lblVerticalAxis.insets = new Insets(0, 0, 5, 5);
-		gbc_lblVerticalAxis.gridx = 1;
-		gbc_lblVerticalAxis.gridy = 2;
-		east.add(lblVerticalAxis, gbc_lblVerticalAxis);
 
-		JButton buttonMinusVertical = new JButton("-");
-		buttonMinusVertical.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent arg0) {
-				//TODO
-				//reduce the vertical scale
-				//min is between 0 and 5 V
-			}
-		});
-		
-		GridBagConstraints gbc_buttonMinusVertical = new GridBagConstraints();
-		gbc_buttonMinusVertical.insets = new Insets(0, 0, 5, 5);
-		gbc_buttonMinusVertical.gridx = 1;
-		gbc_buttonMinusVertical.gridy = 3;
-		east.add(buttonMinusVertical, gbc_buttonMinusVertical);
-
-		JButton buttonPlusVertical = new JButton("+");
-		buttonPlusVertical.addActionListener(new ActionListener() {
+		JButton buttonPlusCH1 = new JButton("+");
+		buttonPlusCH1.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				//TODO
-				//increase vertical scale
-				//check max with JOptionPane?
+				JFrame frame = (JFrame) SwingUtilities.getRoot((JButton)e.getSource());
+				if(voltPerDivCH1 == verticalMIN) {
+					JOptionPane.showMessageDialog(frame, "Volts/Div at limit", "Alert", JOptionPane.WARNING_MESSAGE);
+				}
+				else {
+					voltPerDivCH1 /= factorVertical;
+					System.out.println("ola " + voltPerDivCH1);
+					lblVoltsDivCH1.setText(1.0/voltPerDivCH1 + " V/div");
+					if(selectedTriggerChannel == CHANNEL1)
+						trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
+					else if(selectedTriggerChannel == CHANNEL2)
+						trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
+				}
 			}
 		});
-		buttonPlusVertical.setFocusable(false);
-		GridBagConstraints gbc_buttonPlusVertical = new GridBagConstraints();
-		gbc_buttonPlusVertical.insets = new Insets(0, 0, 5, 5);
-		gbc_buttonPlusVertical.gridx = 2;
-		gbc_buttonPlusVertical.gridy = 3;
-		east.add(buttonPlusVertical, gbc_buttonPlusVertical);
+		buttonPlusCH1.setFocusable(false);
+		GridBagConstraints gbc_buttonPlusCH1 = new GridBagConstraints();
+		gbc_buttonPlusCH1.anchor = GridBagConstraints.NORTH;
+		gbc_buttonPlusCH1.insets = new Insets(0, 0, 5, 5);
+		gbc_buttonPlusCH1.gridx = 2;
+		gbc_buttonPlusCH1.gridy = 1;
+		east.add(buttonPlusCH1, gbc_buttonPlusCH1);
+		GridBagConstraints gbc_lblVoltsDivCH1 = new GridBagConstraints();
+		gbc_lblVoltsDivCH1.gridwidth = 2;
+		gbc_lblVoltsDivCH1.insets = new Insets(0, 0, 5, 5);
+		gbc_lblVoltsDivCH1.gridx = 1;
+		gbc_lblVoltsDivCH1.gridy = 2;
+		east.add(lblVoltsDivCH1, gbc_lblVoltsDivCH1);
 
-		JLabel lblVoltsdiv = new JLabel("Volts/div");
-		// TODO lblVoltsdiv.setText(value + " Volts/div");
-		//TODO remove next line
-		lblVoltsdiv.setVisible(false);
-		GridBagConstraints gbc_lblVoltsdiv = new GridBagConstraints();
-		gbc_lblVoltsdiv.gridwidth = 2;
-		gbc_lblVoltsdiv.insets = new Insets(0, 0, 5, 5);
-		gbc_lblVoltsdiv.gridx = 1;
-		gbc_lblVoltsdiv.gridy = 4;
-		east.add(lblVoltsdiv, gbc_lblVoltsdiv);
+		JLabel lblUsdiv = new JLabel("μs/div");
+		// TODO lblUsdiv.setText(value + "us/div");
+		// TODO remove next line
+		lblUsdiv.setVisible(true);
 
-		Component verticalGlue = Box.createVerticalGlue();
-		GridBagConstraints gbc_verticalGlue = new GridBagConstraints();
-		gbc_verticalGlue.fill = GridBagConstraints.VERTICAL;
-		gbc_verticalGlue.insets = new Insets(0, 0, 5, 5);
-		gbc_verticalGlue.gridx = 1;
-		gbc_verticalGlue.gridy = 5;
-		east.add(verticalGlue, gbc_verticalGlue);
+		JLabel lblCH2Resolution = new JLabel();
+
+		GridBagConstraints gbc_lblCH2Resolution = new GridBagConstraints();
+		gbc_lblCH2Resolution.gridwidth = 2;
+		gbc_lblCH2Resolution.insets = new Insets(0, 0, 5, 5);
+		gbc_lblCH2Resolution.gridx = 1;
+		gbc_lblCH2Resolution.gridy = 4;
+		east.add(lblCH2Resolution, gbc_lblCH2Resolution);
+
+		JLabel lblVoltsDivCH2 = new JLabel();
+		lblVoltsDivCH2.setText(voltPerDivCH2 + " V/div");
+		GridBagConstraints gbc_lblVoltsDivCH2 = new GridBagConstraints();
+		gbc_lblVoltsDivCH2.gridwidth = 2;
+		gbc_lblVoltsDivCH2.insets = new Insets(0, 0, 5, 5);
+		gbc_lblVoltsDivCH2.gridx = 1;
+		gbc_lblVoltsDivCH2.gridy = 6;
+		east.add(lblVoltsDivCH2, gbc_lblVoltsDivCH2);
+
+		JButton buttonMinusCH2 = new JButton("-");
+		buttonMinusCH2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				JFrame frame = (JFrame) SwingUtilities.getRoot((JButton)e.getSource());
+				if(voltPerDivCH2 == verticalMAX) {
+					JOptionPane.showMessageDialog(frame, "Volts/Div at limit", "Alert", JOptionPane.WARNING_MESSAGE);
+				}
+				else {
+					voltPerDivCH2 *= factorVertical;
+					lblVoltsDivCH2.setText(1.0/voltPerDivCH2 + " V/div");
+					if(selectedTriggerChannel == CHANNEL1)
+						trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
+					else if(selectedTriggerChannel == CHANNEL2)
+						trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
+				}
+			}
+		});
+		GridBagConstraints gbc_buttonMinusCH2 = new GridBagConstraints();
+		gbc_buttonMinusCH2.insets = new Insets(0, 0, 5, 5);
+		gbc_buttonMinusCH2.gridx = 1;
+		gbc_buttonMinusCH2.gridy = 5;
+		east.add(buttonMinusCH2, gbc_buttonMinusCH2);
+
+
+
+
+		JButton buttonPlusCH2 = new JButton("+");
+		buttonPlusCH2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				JFrame frame = (JFrame) SwingUtilities.getRoot((JButton)e.getSource());
+				if(voltPerDivCH2 == verticalMIN) {
+					JOptionPane.showMessageDialog(frame, "Volts/Div at limit", "Alert", JOptionPane.WARNING_MESSAGE);
+				}
+				else {
+					voltPerDivCH2 /= factorVertical;
+					lblVoltsDivCH2.setText(1.0/voltPerDivCH2 + " V/div");
+					if(selectedTriggerChannel == CHANNEL1)
+						trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
+					else if(selectedTriggerChannel == CHANNEL2)
+						trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
+				}
+			}
+		});
+		GridBagConstraints gbc_buttonPlusCH2 = new GridBagConstraints();
+		gbc_buttonPlusCH2.insets = new Insets(0, 0, 5, 5);
+		gbc_buttonPlusCH2.gridx = 2;
+		gbc_buttonPlusCH2.gridy = 5;
+		east.add(buttonPlusCH2, gbc_buttonPlusCH2);
+
+
+
+		Component verticalStrut = Box.createVerticalStrut(20);
+		GridBagConstraints gbc_verticalStrut = new GridBagConstraints();
+		gbc_verticalStrut.insets = new Insets(0, 0, 5, 5);
+		gbc_verticalStrut.gridx = 1;
+		gbc_verticalStrut.gridy = 7;
+		east.add(verticalStrut, gbc_verticalStrut);
 
 		JLabel lblHorizontalAxis = new JLabel("Horizontal axis");
 		GridBagConstraints gbc_lblHorizontalAxis = new GridBagConstraints();
@@ -273,87 +431,82 @@ public class Graph {
 		gbc_lblHorizontalAxis.gridwidth = 2;
 		gbc_lblHorizontalAxis.insets = new Insets(0, 0, 5, 5);
 		gbc_lblHorizontalAxis.gridx = 1;
-		gbc_lblHorizontalAxis.gridy = 6;
+		gbc_lblHorizontalAxis.gridy = 8;
 		east.add(lblHorizontalAxis, gbc_lblHorizontalAxis);
 
 		JButton buttonMinusHorizontal = new JButton("-");
 		buttonMinusHorizontal.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				//TODO reduce the time scale
-				//minimum is what 1024 * 13 u ?
+				JFrame frame = (JFrame) SwingUtilities.getRoot((JButton)e.getSource());
+				if(secondsPerDiv == 1) {
+					JOptionPane.showMessageDialog(frame, "Seconds/Div at min", "Alert", JOptionPane.WARNING_MESSAGE);
+				}
+				else if(secondsPerDiv == 2) {
+					secondsPerDiv = 1;
+				}
+				else if(secondsPerDiv == 5) {
+					secondsPerDiv = 2;
+				}
+				else if(secondsPerDiv == 10) {
+					secondsPerDiv = 5;
+				}
+				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
+				lblUsdiv.setText(secondsPerDiv + " ms/div");
+				//System.out.println((double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
+				channel1.clear();
+				channel2.clear();
 			}
 		});
 		buttonMinusHorizontal.setFocusable(false);
 		GridBagConstraints gbc_buttonMinusHorizontal = new GridBagConstraints();
 		gbc_buttonMinusHorizontal.insets = new Insets(0, 0, 5, 5);
 		gbc_buttonMinusHorizontal.gridx = 1;
-		gbc_buttonMinusHorizontal.gridy = 7;
+		gbc_buttonMinusHorizontal.gridy = 9;
 		east.add(buttonMinusHorizontal, gbc_buttonMinusHorizontal);
 
 		JButton buttonPlusHorizontal = new JButton("+");
 		buttonPlusHorizontal.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				//TODO increase the time scale
-				//maximum 15u per division ? cause the adc
+				JFrame frame = (JFrame) SwingUtilities.getRoot((JButton)e.getSource());
+				if(secondsPerDiv == 10) {
+					JOptionPane.showMessageDialog(frame, "Seconds/Div at max", "Alert", JOptionPane.WARNING_MESSAGE);
+				}
+				else if(secondsPerDiv == 5) {
+					secondsPerDiv = 10;
+				}
+				else if(secondsPerDiv == 2) {
+					secondsPerDiv = 5;
+				}
+				else if(secondsPerDiv == 1) {
+					secondsPerDiv = 2;
+				}
+				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
+				//System.out.println(nrSamplesToDraw);
+				lblUsdiv.setText(secondsPerDiv + " ms/div");
+				channel1.clear();
+				channel2.clear();
 			}
 		});
 		buttonPlusHorizontal.setFocusable(false);
 		GridBagConstraints gbc_buttonPlusHorizontal = new GridBagConstraints();
 		gbc_buttonPlusHorizontal.insets = new Insets(0, 0, 5, 5);
 		gbc_buttonPlusHorizontal.gridx = 2;
-		gbc_buttonPlusHorizontal.gridy = 7;
+		gbc_buttonPlusHorizontal.gridy = 9;
 		east.add(buttonPlusHorizontal, gbc_buttonPlusHorizontal);
-
-		JLabel lblUsdiv = new JLabel();
-		// TODO lblUsdiv.setText(value + "us/div");
-		// TODO remove next line
-		lblUsdiv.setVisible(false);
 		GridBagConstraints gbc_lblUsdiv = new GridBagConstraints();
+		gbc_lblUsdiv.anchor = GridBagConstraints.NORTH;
 		gbc_lblUsdiv.gridwidth = 2;
 		gbc_lblUsdiv.insets = new Insets(0, 0, 5, 5);
 		gbc_lblUsdiv.gridx = 1;
-		gbc_lblUsdiv.gridy = 8;
+		gbc_lblUsdiv.gridy = 10;
 		east.add(lblUsdiv, gbc_lblUsdiv);
-
-		Component verticalGlue_1 = Box.createVerticalGlue();
-		GridBagConstraints gbc_verticalGlue_1 = new GridBagConstraints();
-		gbc_verticalGlue_1.insets = new Insets(0, 0, 5, 5);
-		gbc_verticalGlue_1.gridx = 1;
-		gbc_verticalGlue_1.gridy = 9;
-		east.add(verticalGlue_1, gbc_verticalGlue_1);
-
-		JToggleButton tglbtnHrm = new JToggleButton("HRM");
-		tglbtnHrm.addChangeListener(new ChangeListener() {
-			public void stateChanged(ChangeEvent arg0) {
-				//TODO check whats the button state
-				/*
-				 * if (both mode) JoptionPane with error
-				 * else high resolution mode on selected channel
-				 * 
-				 */
-			}
-		});
-		tglbtnHrm.setFocusable(false);
-		GridBagConstraints gbc_tglbtnHrm = new GridBagConstraints();
-		gbc_tglbtnHrm.gridwidth = 2;
-		gbc_tglbtnHrm.insets = new Insets(0, 0, 5, 5);
-		gbc_tglbtnHrm.gridx = 1;
-		gbc_tglbtnHrm.gridy = 10;
-		east.add(tglbtnHrm, gbc_tglbtnHrm);
-
-		Component verticalGlue_2 = Box.createVerticalGlue();
-		GridBagConstraints gbc_verticalGlue_2 = new GridBagConstraints();
-		gbc_verticalGlue_2.insets = new Insets(0, 0, 5, 5);
-		gbc_verticalGlue_2.gridx = 1;
-		gbc_verticalGlue_2.gridy = 11;
-		east.add(verticalGlue_2, gbc_verticalGlue_2);
 
 		JLabel lblChannelSelection = new JLabel("Channel Selection");
 		GridBagConstraints gbc_lblChannelSelection = new GridBagConstraints();
 		gbc_lblChannelSelection.gridwidth = 2;
 		gbc_lblChannelSelection.insets = new Insets(0, 0, 5, 5);
 		gbc_lblChannelSelection.gridx = 1;
-		gbc_lblChannelSelection.gridy = 12;
+		gbc_lblChannelSelection.gridy = 13;
 		east.add(lblChannelSelection, gbc_lblChannelSelection);
 
 		tglbtnCH1 = new JToggleButton("CH1");
@@ -367,7 +520,7 @@ public class Graph {
 		GridBagConstraints gbc_tglbtnCH1 = new GridBagConstraints();
 		gbc_tglbtnCH1.insets = new Insets(0, 0, 0, 5);
 		gbc_tglbtnCH1.gridx = 1;
-		gbc_tglbtnCH1.gridy = 13;
+		gbc_tglbtnCH1.gridy = 14;
 		east.add(tglbtnCH1, gbc_tglbtnCH1);
 
 		tglbtnCH2 = new JToggleButton("CH2");
@@ -380,10 +533,8 @@ public class Graph {
 		GridBagConstraints gbc_tglbtnCH2 = new GridBagConstraints();
 		gbc_tglbtnCH2.insets = new Insets(0, 0, 0, 5);
 		gbc_tglbtnCH2.gridx = 2;
-		gbc_tglbtnCH2.gridy = 13;
+		gbc_tglbtnCH2.gridy = 14;
 		east.add(tglbtnCH2, gbc_tglbtnCH2);
-
-
 
 		//create the line graph
 		channel1 = new XYSeries("Channel 1", true, false);
@@ -393,7 +544,7 @@ public class Graph {
 		data2 = new XYSeriesCollection();
 
 
-		chart = ChartFactory.createXYLineChart("Oscilloscope", "", "", data1);
+		chart = ChartFactory.createXYLineChart("SEMBScope", "", "", data1);
 
 		data1.addSeries(channel1);
 		data2.addSeries(channel2);
@@ -418,7 +569,7 @@ public class Graph {
 		domain.setTickUnit(new NumberTickUnit(1.0));
 		domain.setVisible(false);
 		NumberAxis range = (NumberAxis) xyPlot.getRangeAxis();
-		range.setRange(0.0, 8.0);
+		range.setRange(0.0, (float)Amplitude);
 		range.setTickUnit(new NumberTickUnit(1.0));
 		range.setVisible(false);
 
@@ -438,10 +589,10 @@ public class Graph {
 		south.setBounds(new Rectangle(0, 0, 0, 31));
 		window.getContentPane().add(south, BorderLayout.SOUTH);
 		GridBagLayout gbl_south = new GridBagLayout();
-		gbl_south.columnWidths = new int[]{0, 114, 40, 80, 60, 80, 60, 80, 61, 80, 0, 0, 0, 0, 0};
-		gbl_south.rowHeights = new int[]{11, 0, 35, 27, 0, 0};
-		gbl_south.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
-		gbl_south.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
+		gbl_south.columnWidths = new int[]{0, 114, 40, 80, 60, 80, 60, 80, 61, 80, 62, 120, 0, 0, 0};
+		gbl_south.rowHeights = new int[]{11, 0, 35, 27, 28, 0, 0};
+		gbl_south.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, Double.MIN_VALUE};
+		gbl_south.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
 		south.setLayout(gbl_south);
 
 		Component horizontalStrut_2 = Box.createHorizontalStrut(20);
@@ -507,6 +658,13 @@ public class Graph {
 		gbc_lblAvg.gridy = 1;
 		south.add(lblAvg, gbc_lblAvg);
 
+		JLabel lblTriggerSource = new JLabel("Trigger source");
+		GridBagConstraints gbc_lblTriggerSource = new GridBagConstraints();
+		gbc_lblTriggerSource.insets = new Insets(0, 0, 5, 5);
+		gbc_lblTriggerSource.gridx = 12;
+		gbc_lblTriggerSource.gridy = 1;
+		south.add(lblTriggerSource, gbc_lblTriggerSource);
+
 		JLabel lblCH1 = new JLabel("CH1:");
 		GridBagConstraints gbc_lblCH1 = new GridBagConstraints();
 		gbc_lblCH1.insets = new Insets(0, 0, 5, 5);
@@ -570,12 +728,95 @@ public class Graph {
 		gbc_labelAVGCH1.gridy = 2;
 		south.add(labelAVGCH1, gbc_labelAVGCH1);
 
+		Component horizontalStrut = Box.createHorizontalStrut(20);
+		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
+		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 5);
+		gbc_horizontalStrut.gridx = 10;
+		gbc_horizontalStrut.gridy = 2;
+		south.add(horizontalStrut, gbc_horizontalStrut);
+
+		JToggleButton tglbtnHrm = new JToggleButton("HRM");
+		GridBagConstraints gbc_tglbtnHrm = new GridBagConstraints();
+		gbc_tglbtnHrm.insets = new Insets(0, 0, 5, 5);
+		gbc_tglbtnHrm.gridx = 11;
+		gbc_tglbtnHrm.gridy = 2;
+		south.add(tglbtnHrm, gbc_tglbtnHrm);
+		tglbtnHrm.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent arg0) {
+				//TODO check whats the button state
+				/*
+				 * if (both mode) JoptionPane with error
+				 * else high resolution mode on selected channel
+				 * 
+				 */
+			}
+		});
+		tglbtnHrm.setFocusable(false);
+
+
+		JRadioButton rdbtnCH1 = new JRadioButton("CH1");
+		rdbtnCH1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				selectedTriggerChannel = CHANNEL1;
+				triggerFlag = true;
+				trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
+			}
+		});
+		rdbtnCH1.setFocusable(false);
+		rdbtnCH1.setSelected(true);
+		GridBagConstraints gbc_rdbtnCH1 = new GridBagConstraints();
+		gbc_rdbtnCH1.insets = new Insets(0, 0, 5, 5);
+		gbc_rdbtnCH1.gridx = 12;
+		gbc_rdbtnCH1.gridy = 2;
+		south.add(rdbtnCH1, gbc_rdbtnCH1);
+
 		JLabel lblCH2 = new JLabel("CH2:");
 		GridBagConstraints gbc_lblCH2 = new GridBagConstraints();
 		gbc_lblCH2.insets = new Insets(0, 0, 5, 5);
 		gbc_lblCH2.gridx = 1;
 		gbc_lblCH2.gridy = 3;
 		south.add(lblCH2, gbc_lblCH2);
+
+		JToggleButton tglbtnRun = new JToggleButton("STOP");
+		tglbtnRun.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				if(((JToggleButton) arg0.getSource()).isSelected())	{
+					((JToggleButton) arg0.getSource()).setText("RUN");
+					run = STOP;
+				}
+				else {
+					((JToggleButton) arg0.getSource()).setText("STOP");
+					run = START;
+				}
+			}
+		});
+		tglbtnRun.setFocusable(false);
+		GridBagConstraints gbc_tglbtnRun = new GridBagConstraints();
+		gbc_tglbtnRun.gridheight = 2;
+		gbc_tglbtnRun.insets = new Insets(0, 0, 5, 5);
+		gbc_tglbtnRun.gridx = 11;
+		gbc_tglbtnRun.gridy = 3;
+		south.add(tglbtnRun, gbc_tglbtnRun);
+
+		JRadioButton rdbtnCH2 = new JRadioButton("CH2");
+		rdbtnCH2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				selectedTriggerChannel = CHANNEL2;
+				triggerFlag = true;
+				trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
+			}
+		});
+		rdbtnCH2.setFocusable(false);
+		GridBagConstraints gbc_rdbtnCH2 = new GridBagConstraints();
+		gbc_rdbtnCH2.insets = new Insets(0, 0, 5, 5);
+		gbc_rdbtnCH2.gridx = 12;
+		gbc_rdbtnCH2.gridy = 3;
+		south.add(rdbtnCH2, gbc_rdbtnCH2);
+
+		//Group the radio buttons.
+		ButtonGroup triggerSource = new ButtonGroup();
+		triggerSource.add(rdbtnCH1);
+		triggerSource.add(rdbtnCH2);
 
 		JLabel labelFreqCH2 = new JLabel("?");
 		/* if( channel 2 is off)
@@ -633,12 +874,65 @@ public class Graph {
 		gbc_labelAVGCH2.gridy = 3;
 		south.add(labelAVGCH2, gbc_labelAVGCH2);
 
+
+
 		Component verticalStrut_2 = Box.createVerticalStrut(20);
 		GridBagConstraints gbc_verticalStrut_2 = new GridBagConstraints();
-		gbc_verticalStrut_2.insets = new Insets(0, 0, 0, 5);
+		gbc_verticalStrut_2.insets = new Insets(0, 0, 5, 5);
 		gbc_verticalStrut_2.gridx = 1;
 		gbc_verticalStrut_2.gridy = 4;
 		south.add(verticalStrut_2, gbc_verticalStrut_2);
+
+		JToggleButton tglbtnAsc = new JToggleButton("ASC");
+		GridBagConstraints gbc_tglbtnAsc = new GridBagConstraints();
+		gbc_tglbtnAsc.insets = new Insets(0, 0, 5, 5);
+		gbc_tglbtnAsc.gridx = 12;
+		gbc_tglbtnAsc.gridy = 4;
+		south.add(tglbtnAsc, gbc_tglbtnAsc);
+		tglbtnAsc.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				JToggleButton aux = (JToggleButton) e.getSource();
+				if(aux.isSelected()) {
+					//TODO button is selected --> change trigger to dsc
+					aux.setText("DSC");
+					selectedTriggerMode = DSC;
+					triggerFlag = true;
+				}
+				else {
+					//TODO button is unselected --> change trigger to asc
+					aux.setText("ASC");
+					selectedTriggerMode = ASC;
+					triggerFlag = true;
+				}
+			}
+		});
+		tglbtnAsc.setFocusable(false);
+
+		Component verticalStrut_3 = Box.createVerticalStrut(20);
+		GridBagConstraints gbc_verticalStrut_3 = new GridBagConstraints();
+		gbc_verticalStrut_3.insets = new Insets(0, 0, 0, 5);
+		gbc_verticalStrut_3.gridx = 6;
+		gbc_verticalStrut_3.gridy = 5;
+		south.add(verticalStrut_3, gbc_verticalStrut_3);
+
+		buttonMinusCH1.setEnabled(false);
+		buttonPlusCH1.setEnabled(false);
+		buttonMinusCH2.setEnabled(false);
+		buttonPlusCH2.setEnabled(false);
+		buttonMinusHorizontal.setEnabled(false);
+		buttonPlusHorizontal.setEnabled(false);
+		tglbtnAsc.setEnabled(false);
+		tglbtnHrm.setEnabled(false);
+		tglbtnRun.setEnabled(false);
+		rdbtnCH1.setEnabled(false);
+		rdbtnCH2.setEnabled(false);
+		trigger.setEnabled(false);
+		sliderCH1Pos.setEnabled(false);
+		sliderCH2Pos.setEnabled(false);
+		tglbtnCH1.setEnabled(false);
+		tglbtnCH2.setEnabled(false);
+		lblUsdiv.setText(secondsPerDiv + " ms/div");
+
 
 
 		//configure connect button
@@ -647,9 +941,41 @@ public class Graph {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(connect.getText().equals("Connect")) {
-
+					buttonMinusCH1.setEnabled(true);
+					buttonPlusCH1.setEnabled(true);
+					buttonMinusCH2.setEnabled(true);
+					buttonPlusCH2.setEnabled(true);
+					buttonMinusHorizontal.setEnabled(true);
+					buttonPlusHorizontal.setEnabled(true);
+					trigger.setEnabled(true);
+					rdbtnCH1.setEnabled(true);
+					rdbtnCH2.setEnabled(true);
+					tglbtnAsc.setEnabled(true);
+					tglbtnHrm.setEnabled(true);
+					tglbtnRun.setEnabled(true);
+					sliderCH1Pos.setEnabled(true);
+					sliderCH2Pos.setEnabled(true);
+					tglbtnCH1.setEnabled(true);
+					tglbtnCH2.setEnabled(true);
 					tglbtnCH1.setSelected(true);
 					tglbtnCH2.setSelected(false);
+					trigger.setValue(40);
+					sliderCH1Pos.setValue(0);
+					sliderCH2Pos.setValue(0);
+					secondsPerDiv = 5;
+					voltPerDivCH1 = 1;
+					voltPerDivCH2 = 1;
+					lblVoltsDivCH1.setText(voltPerDivCH1 + " V/div");
+					lblVoltsDivCH2.setText(voltPerDivCH2 + " V/div");
+					lblUsdiv.setText(secondsPerDiv + " ms/div");
+					selectedTriggerChannel = CHANNEL1;
+					rdbtnCH1.setSelected(true);
+					rdbtnCH2.setSelected(false);
+					selectedChannel = CHANNEL1;
+					triggerFlag = true;
+					triggerIndex = 0;
+					selectedTriggerMode = ASC;
+					nrSamplesToDraw = 166;
 					chosenPort = SerialPort.getCommPort(portList.getSelectedItem().toString());
 					chosenPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
 					chosenPort.setBaudRate(230400);
@@ -688,21 +1014,23 @@ public class Graph {
 									switch(selectedChannel) {
 									case CHANNEL1:
 										bufferChannel1[(index++) % nrSamples] = next;
-										trigger(current, next, index, selectedTriggerMode);
+										if(selectedTriggerChannel == CHANNEL1)
+											trigger(current, next, index, selectedTriggerMode);
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
-											drawChannel(CHANNEL1, triggerIndex);
+											if(run == START) drawChannel(CHANNEL1, triggerIndex);
 										}
 										current = next;
 										break;
 									case CHANNEL2:
 										bufferChannel2[(index++) % nrSamples] = next;
-										trigger(current, next, index, selectedTriggerMode);
+										if(selectedTriggerChannel == CHANNEL2) 
+											trigger(current, next, index, selectedTriggerMode);
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
-											drawChannel(CHANNEL2, triggerIndex);
+											if(run == START) drawChannel(CHANNEL2, triggerIndex);
 										}
 										current = next;
 										break;
@@ -718,15 +1046,13 @@ public class Graph {
 										else if(state == 1) {
 											if(receiving == 256) {
 												bufferChannel1[(index++) % (nrSamples)] = next;
-												if(selectedTriggerChannel == CHANNEL1) {
+												if(selectedTriggerChannel == CHANNEL1)
 													trigger(current, next, index, selectedTriggerMode);
-												}
 											}
 											else if(receiving == 257){
 												bufferChannel2[(index++) % (nrSamples)] = next;
-												if(selectedTriggerChannel == CHANNEL2) {
+												if(selectedTriggerChannel == CHANNEL2)
 													trigger(current, next, index, selectedTriggerMode);
-												}
 											}
 
 											if(index == nrSamples - 1) {
@@ -734,7 +1060,7 @@ public class Graph {
 												triggerFlag = true;
 												if(toggleCount == 1) {
 													toggleCount = 0;
-													drawChannel(BOTH, triggerIndex); //draws 1 wave at a time
+													if(run == START) drawChannel(BOTH, triggerIndex); //draws 1 wave at a time
 													continue;
 												}
 												toggleCount ++;	
@@ -763,6 +1089,22 @@ public class Graph {
 					channel1.clear();
 					channel2.clear();
 					x = 0;
+					buttonMinusCH1.setEnabled(false);
+					buttonPlusCH1.setEnabled(false);
+					buttonMinusCH2.setEnabled(false);
+					buttonPlusCH2.setEnabled(false);
+					buttonMinusHorizontal.setEnabled(false);
+					buttonPlusHorizontal.setEnabled(false);
+					sliderCH1Pos.setEnabled(false);
+					sliderCH2Pos.setEnabled(false);
+					tglbtnAsc.setEnabled(false);
+					tglbtnHrm.setEnabled(false);
+					tglbtnRun.setEnabled(false);
+					tglbtnCH1.setEnabled(false);
+					tglbtnCH2.setEnabled(false);
+					rdbtnCH1.setEnabled(false);
+					rdbtnCH2.setEnabled(false);
+					trigger.setEnabled(false);
 				}
 			}
 		});
@@ -787,7 +1129,7 @@ public class Graph {
 			return;
 		}
 		try {
-			System.out.println(selectedChannel);
+			//System.out.println(selectedChannel);
 			chosenPort.getOutputStream().write(selectedChannel);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -799,12 +1141,12 @@ public class Graph {
 	static void drawChannel(int channelID, int triggerIndex) {
 		//channelID 0 -> channel1 / 1 -> channel2 / 2 -> both channels
 		int x = 0;
-		for(int i = triggerIndex; i <= triggerIndex + nrSamples/2; i++) {
+		for(int i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
 			switch(channelID) {
-			case CHANNEL1: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i]  * fullScale / nrLevels); break;
-			case CHANNEL2: channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); break;
-			case BOTH: channel1.addOrUpdate((x) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i]  * fullScale / nrLevels); 
-			channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); 
+			case CHANNEL1: channel1.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels); break;
+			case CHANNEL2: channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels); break;
+			case BOTH: channel1.addOrUpdate((x) * (float) nrDiv / (nrSamplesToDraw), bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels); 
+			channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels); 
 			break;
 			}
 		}
@@ -819,13 +1161,13 @@ public class Graph {
 				//System.out.println("Trigou");
 			}
 			break;
-		case DESC:
+		case DSC:
 			if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next < current) {
 				triggerIndex = index - 1;
 				triggerFlag = false;
 			}
 			break;
 		}
-		
+
 	}
 }
