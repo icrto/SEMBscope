@@ -1,5 +1,6 @@
 package sembscope;
 
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -23,10 +24,13 @@ import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.chart.axis.NumberTickUnit;
+import org.jfree.chart.plot.Marker;
+import org.jfree.chart.plot.ValueMarker;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.chart.renderer.xy.XYLineAndShapeRenderer;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+
 
 import com.fazecast.jSerialComm.SerialPort;
 import java.awt.Color;
@@ -37,6 +41,7 @@ import java.awt.Insets;
 import java.awt.Rectangle;
 
 import javax.swing.SwingConstants;
+import java.awt.SystemColor;
 
 
 public class Graph {
@@ -61,9 +66,9 @@ public class Graph {
 
 	static int nrDiv = 10;
 	static final int TRIGGER_MIN = 0;
-	static final int TRIGGER_MAX = 50;
-	static final int TRIGGER_INIT = 25;    //initial value of slider
-	static float triggerValue = (float)2.5;
+	static final int TRIGGER_MAX = 80;
+	static final int TRIGGER_INIT = 40;    //initial value of slider
+	static float triggerValue = (float)4.0;
 
 	static XYSeries channel1;
 	static XYSeries channel2;
@@ -109,10 +114,10 @@ public class Graph {
 		JPanel east = new JPanel();
 		window.getContentPane().add(east, BorderLayout.EAST);
 		GridBagLayout gbl_east = new GridBagLayout();
-		gbl_east.columnWidths = new int[]{0, 0, 0, 0, 0, 60, 18, -9, 0};
-		gbl_east.rowHeights = new int[]{32, 24, 41, 20, 37, 12, 36, 30, 35, 29, 0, 14, 38, 0, 0, 0, 0};
-		gbl_east.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0, Double.MIN_VALUE};
-		gbl_east.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE};
+		gbl_east.columnWidths = new int[]{0, 0, 0, 0, 11, 60, 18, 0};
+		gbl_east.rowHeights = new int[]{32, 24, 41, 20, 37, 12, 36, 30, 35, 29, 0, 14, 38, 0, 0};
+		gbl_east.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE};
+		gbl_east.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
 		east.setLayout(gbl_east);
 		Hashtable<Integer, JLabel> triggerTable = new Hashtable<Integer, JLabel>();
 		triggerTable.put( new Integer( 0 ), new JLabel("0.0") );
@@ -126,6 +131,12 @@ public class Graph {
 		triggerTable.put( new Integer( 40 ), new JLabel("4.0") );
 		triggerTable.put( new Integer( 45 ), new JLabel("4.5") );
 		triggerTable.put( new Integer( 50 ), new JLabel("5.0") );
+		triggerTable.put( new Integer( 55 ), new JLabel("5.5") );
+		triggerTable.put( new Integer( 60 ), new JLabel("6.0") );
+		triggerTable.put( new Integer( 65 ), new JLabel("6.5") );
+		triggerTable.put( new Integer( 70 ), new JLabel("7.0") );
+		triggerTable.put( new Integer( 75 ), new JLabel("7.5") );
+		triggerTable.put( new Integer( 80 ), new JLabel("8.0") );
 
 		Component horizontalStrut_1 = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut_1 = new GridBagConstraints();
@@ -136,9 +147,9 @@ public class Graph {
 
 		Component verticalStrut = Box.createVerticalStrut(20);
 		GridBagConstraints gbc_verticalStrut = new GridBagConstraints();
-		gbc_verticalStrut.gridheight = 16;
+		gbc_verticalStrut.gridheight = 14;
 		gbc_verticalStrut.insets = new Insets(0, 0, 0, 5);
-		gbc_verticalStrut.gridx = 3;
+		gbc_verticalStrut.gridx = 4;
 		gbc_verticalStrut.gridy = 0;
 		east.add(verticalStrut, gbc_verticalStrut);
 
@@ -146,7 +157,7 @@ public class Graph {
 		JPanel triggerPanel = new JPanel();
 		GridBagConstraints gbc_triggerPanel = new GridBagConstraints();
 		gbc_triggerPanel.insets = new Insets(0, 0, 0, 5);
-		gbc_triggerPanel.gridheight = 16;
+		gbc_triggerPanel.gridheight = 14;
 		gbc_triggerPanel.fill = GridBagConstraints.BOTH;
 		gbc_triggerPanel.gridx = 5;
 		gbc_triggerPanel.gridy = 0;
@@ -174,10 +185,10 @@ public class Graph {
 		gbc_trigger.gridx = 0;
 		gbc_trigger.gridy = 1;
 		triggerPanel.add(trigger, gbc_trigger);
-		trigger.setMinorTickSpacing(1); 
-		trigger.setMajorTickSpacing(2); 
-		trigger.setPaintTicks(true);
-		trigger.setPaintLabels(true);
+		trigger.setMinorTickSpacing(5); 
+		trigger.setMajorTickSpacing(10); 
+		trigger.setPaintTicks(false);
+		trigger.setPaintLabels(false);
 		trigger.setBackground(new Color(238, 238, 238));
 		trigger.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent event) {
@@ -210,7 +221,7 @@ public class Graph {
 
 		Component horizontalStrut = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
-		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 5);
+		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 0);
 		gbc_horizontalStrut.gridx = 6;
 		gbc_horizontalStrut.gridy = 1;
 		east.add(horizontalStrut, gbc_horizontalStrut);
@@ -232,6 +243,7 @@ public class Graph {
 				//min is between 0 and 5 V
 			}
 		});
+		trigger.setLabelTable( triggerTable );
 		GridBagConstraints gbc_buttonMinusVertical = new GridBagConstraints();
 		gbc_buttonMinusVertical.insets = new Insets(0, 0, 5, 5);
 		gbc_buttonMinusVertical.gridx = 1;
@@ -363,27 +375,27 @@ public class Graph {
 
 		tglbtnCH1 = new JToggleButton("CH1");
 		tglbtnCH1.setSelected(true);
-		tglbtnCH1.addChangeListener(new ChangeListener() {
-			public void stateChanged(ChangeEvent e) {
+		tglbtnCH1.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
 				checkChannelInput();
 			}
 		});
 		tglbtnCH1.setFocusable(false);
 		GridBagConstraints gbc_tglbtnCH1 = new GridBagConstraints();
-		gbc_tglbtnCH1.insets = new Insets(0, 0, 5, 5);
+		gbc_tglbtnCH1.insets = new Insets(0, 0, 0, 5);
 		gbc_tglbtnCH1.gridx = 1;
 		gbc_tglbtnCH1.gridy = 13;
 		east.add(tglbtnCH1, gbc_tglbtnCH1);
 
 		tglbtnCH2 = new JToggleButton("CH2");
-		tglbtnCH2.addChangeListener(new ChangeListener() {
-			public void stateChanged(ChangeEvent e) {
+		tglbtnCH2.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
 				checkChannelInput();
 			}
 		});
 		tglbtnCH2.setFocusable(false);
 		GridBagConstraints gbc_tglbtnCH2 = new GridBagConstraints();
-		gbc_tglbtnCH2.insets = new Insets(0, 0, 5, 5);
+		gbc_tglbtnCH2.insets = new Insets(0, 0, 0, 5);
 		gbc_tglbtnCH2.gridx = 2;
 		gbc_tglbtnCH2.gridy = 13;
 		east.add(tglbtnCH2, gbc_tglbtnCH2);
@@ -421,11 +433,24 @@ public class Graph {
 		NumberAxis domain = (NumberAxis) xyPlot.getDomainAxis();
 		domain.setRange(0.00, (float)nrDiv);
 		domain.setTickUnit(new NumberTickUnit(1.0));
+		domain.setVisible(false);
 		NumberAxis range = (NumberAxis) xyPlot.getRangeAxis();
-		range.setRange(0.0, 5.0);
+		range.setRange(0.0, 8.0);
 		range.setTickUnit(new NumberTickUnit(1.0));
+		range.setVisible(false);
 
 
+		final Marker horizontalLine = new ValueMarker(4.0, Color.BLACK, new BasicStroke(
+				0.5f, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_ROUND, 
+				10.0f, new float[] {10.0f, 10.0f}, 1.0f
+				));
+		final Marker verticalLine = new ValueMarker(5.0, Color.BLACK, new BasicStroke(
+				0.5f, BasicStroke.CAP_SQUARE, BasicStroke.JOIN_ROUND, 
+				10.0f, new float[] {10.0f, 10.0f}, 1.0f
+				));
+		xyPlot.addRangeMarker(horizontalLine);
+		xyPlot.addDomainMarker(verticalLine);
+		
 		JPanel south = new JPanel();
 		south.setBounds(new Rectangle(0, 0, 0, 31));
 		window.getContentPane().add(south, BorderLayout.SOUTH);
@@ -631,23 +656,17 @@ public class Graph {
 		gbc_verticalStrut_2.gridx = 1;
 		gbc_verticalStrut_2.gridy = 4;
 		south.add(verticalStrut_2, gbc_verticalStrut_2);
-		//		XYPlot xyPlot = (XYPlot) chart.getPlot();
-		//		NumberAxis domain = (NumberAxis) xyPlot.getDomainAxis();
-		//		domain.setRange(0.00, (float)nrDiv);
-		//		domain.setTickUnit(new NumberTickUnit(1.0));
-		//		NumberAxis range = (NumberAxis) xyPlot.getRangeAxis();
-		//		range.setRange(0.0, 5.0);
-		//		range.setTickUnit(new NumberTickUnit(1.0));
-
-
+	
+		
 		//configure connect button
 		//use other thread to listen for data
 		connect.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(connect.getText().equals("Connect")) {
-					channel1.clear();
-					channel2.clear();
+					
+					tglbtnCH1.setSelected(true);
+					tglbtnCH2.setSelected(false);
 					chosenPort = SerialPort.getCommPort(portList.getSelectedItem().toString());
 					chosenPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
 					chosenPort.setBaudRate(230400);
@@ -655,6 +674,8 @@ public class Graph {
 						System.out.println(chosenPort.getBaudRate());
 						connect.setText("Disconnect");
 						portList.setEnabled(false);
+						checkChannelInput();
+
 					}
 					Thread thread = new Thread() {
 						@Override public void run() {
@@ -753,6 +774,10 @@ public class Graph {
 					chosenPort.closePort();
 					portList.setEnabled(true);
 					connect.setText("Connect");
+					tglbtnCH1.setSelected(false);
+					tglbtnCH2.setSelected(false);
+					channel1.clear();
+					channel2.clear();
 					x = 0;
 				}
 			}
@@ -800,9 +825,9 @@ public class Graph {
 		int x = 0;
 		for(int i = triggerIndex; i <= triggerIndex + nrSamples/2; i++) {
 			switch(channelID) {
-			case CHANNEL1: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); break;
+			case CHANNEL1: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i]  * fullScale / nrLevels); break;
 			case CHANNEL2: channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); break;
-			case BOTH: channel1.addOrUpdate((x) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * fullScale / nrLevels); 
+			case BOTH: channel1.addOrUpdate((x) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * 2 * fullScale / nrLevels); 
 			channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); 
 			break;
 			}
