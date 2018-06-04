@@ -5,7 +5,6 @@ import java.awt.BorderLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
-import java.util.Hashtable;
 import java.util.Scanner;
 
 import javax.swing.Box;
@@ -41,7 +40,6 @@ import java.awt.Insets;
 import java.awt.Rectangle;
 
 import javax.swing.SwingConstants;
-import java.awt.SystemColor;
 
 
 public class Graph {
@@ -49,6 +47,8 @@ public class Graph {
 	static final byte CHANNEL2 = 1;
 	static final byte BOTH = 2;
 	static final byte NONE = 3;
+	static final byte ASC = 4;
+	static final byte DESC = 5;
 
 	static SerialPort chosenPort;
 	static int x = 0;
@@ -58,6 +58,7 @@ public class Graph {
 	static int toggleCount = 0;
 	static int index = 0;
 	static int triggerIndex = 0;
+	static int selectedTriggerMode = ASC;
 	static boolean triggerFlag = true;
 	static int[] bufferChannel1 = new int[nrSamples];
 	static int[] bufferChannel2 = new int[nrSamples];
@@ -119,25 +120,7 @@ public class Graph {
 		gbl_east.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, Double.MIN_VALUE};
 		gbl_east.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
 		east.setLayout(gbl_east);
-		Hashtable<Integer, JLabel> triggerTable = new Hashtable<Integer, JLabel>();
-		triggerTable.put( new Integer( 0 ), new JLabel("0.0") );
-		triggerTable.put( new Integer( 5 ), new JLabel("0.5") );
-		triggerTable.put( new Integer( 10 ), new JLabel("1.0") );
-		triggerTable.put( new Integer( 15 ), new JLabel("1.5") );
-		triggerTable.put( new Integer( 20 ), new JLabel("2.0") );
-		triggerTable.put( new Integer( 25 ), new JLabel("2.5") );
-		triggerTable.put( new Integer( 30 ), new JLabel("3.0") );
-		triggerTable.put( new Integer( 35 ), new JLabel("3.5") );
-		triggerTable.put( new Integer( 40 ), new JLabel("4.0") );
-		triggerTable.put( new Integer( 45 ), new JLabel("4.5") );
-		triggerTable.put( new Integer( 50 ), new JLabel("5.0") );
-		triggerTable.put( new Integer( 55 ), new JLabel("5.5") );
-		triggerTable.put( new Integer( 60 ), new JLabel("6.0") );
-		triggerTable.put( new Integer( 65 ), new JLabel("6.5") );
-		triggerTable.put( new Integer( 70 ), new JLabel("7.0") );
-		triggerTable.put( new Integer( 75 ), new JLabel("7.5") );
-		triggerTable.put( new Integer( 80 ), new JLabel("8.0") );
-
+		
 		Component horizontalStrut_1 = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut_1 = new GridBagConstraints();
 		gbc_horizontalStrut_1.insets = new Insets(0, 0, 5, 5);
@@ -196,7 +179,7 @@ public class Graph {
 				//System.out.println(triggerValue);
 			}
 		});
-		trigger.setLabelTable( triggerTable );
+		
 		triggerLabel.setLabelFor(trigger);
 
 		JToggleButton tglbtnAsc = new JToggleButton("ASC");
@@ -243,7 +226,7 @@ public class Graph {
 				//min is between 0 and 5 V
 			}
 		});
-		trigger.setLabelTable( triggerTable );
+		
 		GridBagConstraints gbc_buttonMinusVertical = new GridBagConstraints();
 		gbc_buttonMinusVertical.insets = new Insets(0, 0, 5, 5);
 		gbc_buttonMinusVertical.gridx = 1;
@@ -450,7 +433,7 @@ public class Graph {
 				));
 		xyPlot.addRangeMarker(horizontalLine);
 		xyPlot.addDomainMarker(verticalLine);
-		
+
 		JPanel south = new JPanel();
 		south.setBounds(new Rectangle(0, 0, 0, 31));
 		window.getContentPane().add(south, BorderLayout.SOUTH);
@@ -656,15 +639,15 @@ public class Graph {
 		gbc_verticalStrut_2.gridx = 1;
 		gbc_verticalStrut_2.gridy = 4;
 		south.add(verticalStrut_2, gbc_verticalStrut_2);
-	
-		
+
+
 		//configure connect button
 		//use other thread to listen for data
 		connect.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				if(connect.getText().equals("Connect")) {
-					
+
 					tglbtnCH1.setSelected(true);
 					tglbtnCH2.setSelected(false);
 					chosenPort = SerialPort.getCommPort(portList.getSelectedItem().toString());
@@ -705,10 +688,7 @@ public class Graph {
 									switch(selectedChannel) {
 									case CHANNEL1:
 										bufferChannel1[(index++) % nrSamples] = next;
-										if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
-											triggerIndex = index - 1;
-											triggerFlag = false;
-										}
+										trigger(current, next, index, selectedTriggerMode);
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
@@ -718,10 +698,7 @@ public class Graph {
 										break;
 									case CHANNEL2:
 										bufferChannel2[(index++) % nrSamples] = next;
-										if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
-											triggerIndex = index - 1;
-											triggerFlag = false;
-										}
+										trigger(current, next, index, selectedTriggerMode);
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
@@ -731,8 +708,9 @@ public class Graph {
 										break;
 									case BOTH: 
 										if(state == 0) {
+											index = 0;
 											if(next == 256 || next == 257) { //flag
-												System.out.println(next);
+												//System.out.println(next);
 												receiving  = next;
 												state = 1;
 											}
@@ -740,23 +718,29 @@ public class Graph {
 										else if(state == 1) {
 											if(receiving == 256) {
 												bufferChannel1[(index++) % (nrSamples)] = next;
+												if(selectedTriggerChannel == CHANNEL1) {
+													trigger(current, next, index, selectedTriggerMode);
+												}
 											}
 											else if(receiving == 257){
 												bufferChannel2[(index++) % (nrSamples)] = next;
+												if(selectedTriggerChannel == CHANNEL2) {
+													trigger(current, next, index, selectedTriggerMode);
+												}
 											}
 
 											if(index == nrSamples - 1) {
-												index = 0;
 												state = 0;
+												triggerFlag = true;
 												if(toggleCount == 1) {
 													toggleCount = 0;
-													drawChannel(BOTH, 2);
+													drawChannel(BOTH, triggerIndex); //draws 1 wave at a time
 													continue;
 												}
 												toggleCount ++;	
-												//drawChannel(BOTH, 2);
-
+												//drawChannel(BOTH, triggerIndex); //draws both waves at once
 											}
+											current = next;
 										}
 										break;
 									default:
@@ -788,34 +772,26 @@ public class Graph {
 	static void checkChannelInput() {
 		if(tglbtnCH1.isSelected() && tglbtnCH2.isSelected()) {
 			selectedChannel = BOTH;
-			try {
-				chosenPort.getOutputStream().write(BOTH);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			state = 0;
 		}
 		else if(tglbtnCH1.isSelected()){
 			selectedChannel = CHANNEL1;
-			try {
-				chosenPort.getOutputStream().write(CHANNEL1);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-
 		}
 		else if(tglbtnCH2.isSelected()) {
 			selectedChannel = CHANNEL2;
-			try {
-				chosenPort.getOutputStream().write(CHANNEL2);
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
 		}
 		else {
 			selectedChannel = NONE;
+			channel1.clear();
+			channel2.clear();
+			return;
+		}
+		try {
+			System.out.println(selectedChannel);
+			chosenPort.getOutputStream().write(selectedChannel);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 		channel1.clear();
 		channel2.clear();
@@ -827,10 +803,29 @@ public class Graph {
 			switch(channelID) {
 			case CHANNEL1: channel1.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i]  * fullScale / nrLevels); break;
 			case CHANNEL2: channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); break;
-			case BOTH: channel1.addOrUpdate((x) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i] * 2 * fullScale / nrLevels); 
+			case BOTH: channel1.addOrUpdate((x) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel1[i]  * fullScale / nrLevels); 
 			channel2.addOrUpdate((x++) * (nrDiv * 1) / (nrSamples/2.0), bufferChannel2[i] * fullScale / nrLevels); 
 			break;
 			}
 		}
+	}
+	static void trigger(int current, int next, int index, int mode) {
+		switch(mode) {
+		case ASC:
+			//System.out.println("Tentou triggar");
+			if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
+				triggerIndex = index - 1;
+				triggerFlag = false;
+				//System.out.println("Trigou");
+			}
+			break;
+		case DESC:
+			if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next < current) {
+				triggerIndex = index - 1;
+				triggerFlag = false;
+			}
+			break;
+		}
+		
 	}
 }
