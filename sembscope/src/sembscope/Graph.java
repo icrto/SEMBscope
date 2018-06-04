@@ -732,7 +732,7 @@ public class Graph {
 													drawChannel(BOTH, 2);
 													continue;
 												}
-												toggleCount ++;		
+												toggleCount ++;	
 												//drawChannel(BOTH, 2);
 
 											}
