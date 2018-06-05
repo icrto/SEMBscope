@@ -55,11 +55,15 @@ public class Graph {
 	static final byte DSC = 5;
 	static final byte STOP = 6;
 	static final byte START = 7;
+	static final byte HRM  = 8;
+	static final byte NORMAL = 9;
 	static final double verticalMAX = 4.0;
 	static final double verticalMIN = 0.25;
 	static final int horizontalMAX = 15;
 	static final int horizontalMIN = 1;
-	static int periodPerSample = 300; //in us
+	static int tickPeriod = 100;
+	static int nrTicks = 3;
+	static int periodPerSample = tickPeriod * nrTicks; //in us 
 
 
 	static SerialPort chosenPort;
@@ -90,12 +94,14 @@ public class Graph {
 	static final int TRIGGER_MAX = 80;
 	static final int TRIGGER_INIT = 40;    //initial value of slider
 	static float triggerValue = (float)4.0;
-	static int channel1Min = 0;
-	static int channel1Max = 80;
-	static int ch1PosValue = 0;
+	static final int channel1Min = 0;
+	static final int channel1Max = 80;
+	static float ch1PosValue = (float) 4.0;
 	static int channel2Min = 0;
 	static int channel2Max = 80;
-	static int ch2PosValue = 0;
+	static float ch2PosValue = (float) 4.0;
+
+	static int valueChannel;
 
 	static XYSeries channel1;
 	static XYSeries channel2;
@@ -113,6 +119,23 @@ public class Graph {
 
 	static JToggleButton tglbtnCH1;
 	static JToggleButton tglbtnCH2;
+	static JToggleButton tglbtnHrm;
+
+	static JSlider sliderCH1Pos;
+	static JSlider sliderCH2Pos;
+	static JSlider trigger;
+
+	static JLabel labelFreqCH1;
+	static JLabel labelFreqCH2;
+	static JLabel labelMinCH1;
+	static JLabel labelMinCH2;
+	static JLabel labelMaxCH1;
+	static JLabel labelMaxCH2;
+	static JLabel labelAVGCH1;
+	static JLabel labelAVGCH2;
+
+
+
 
 	public static void main(String[] args) {
 		// create and configure the window
@@ -185,11 +208,14 @@ public class Graph {
 		gbc_lblPositionCH1.gridy = 0;
 		panelScaleCH1.add(lblPositionCH1, gbc_lblPositionCH1);
 
-		JSlider sliderCH1Pos = new JSlider(JSlider.VERTICAL, channel1Min, channel1Max, channel1Min);
+		sliderCH1Pos = new JSlider(JSlider.VERTICAL, channel1Min, channel1Max, (int) channel1Max/2);
+		sliderCH1Pos.setMinorTickSpacing(5);
+		sliderCH1Pos.setMajorTickSpacing(10);
 		sliderCH1Pos.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent event) {
-				ch1PosValue = (int) ((JSlider) event.getSource()).getValue()/10;
-				//System.out.println(triggerValue);
+				ch1PosValue = (float)(sliderCH1Pos.getValue()/10.0);
+				System.out.println(ch1PosValue);
+				trigger(selectedTriggerChannel, current, next, index, selectedTriggerMode);
 			}
 		});
 		GridBagConstraints gbc_sliderCH1Pos = new GridBagConstraints();
@@ -224,11 +250,14 @@ public class Graph {
 		gbc_lblPositionCH2.gridy = 0;
 		panelScaleCH2.add(lblPositionCH2, gbc_lblPositionCH2);
 
-		JSlider sliderCH2Pos = new JSlider(JSlider.VERTICAL, channel2Min, channel2Max, channel2Min);
-		sliderCH1Pos.addChangeListener(new ChangeListener() {
+		sliderCH2Pos = new JSlider(JSlider.VERTICAL, channel2Min, channel2Max, (int) channel2Max/2);
+		sliderCH2Pos.setMinorTickSpacing(5);
+		sliderCH2Pos.setMajorTickSpacing(10);
+		sliderCH2Pos.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent event) {
-				ch2PosValue = (int) ((JSlider) event.getSource()).getValue()/10;
-				//System.out.println(triggerValue);
+				ch2PosValue = (float)(sliderCH2Pos.getValue()/10.0);
+				trigger(selectedTriggerChannel, current, next, index, selectedTriggerMode);
+				System.out.println(ch2PosValue);
 			}
 		});
 		GridBagConstraints gbc_sliderCH2Pos = new GridBagConstraints();
@@ -263,7 +292,7 @@ public class Graph {
 		gbc_triggerLabel.gridy = 0;
 		triggerPanel.add(triggerLabel, gbc_triggerLabel);
 		triggerLabel.setHorizontalAlignment(SwingConstants.CENTER);
-		JSlider trigger = new JSlider(JSlider.VERTICAL, TRIGGER_MIN, TRIGGER_MAX, TRIGGER_INIT);
+		trigger = new JSlider(JSlider.VERTICAL, TRIGGER_MIN, TRIGGER_MAX, TRIGGER_INIT);
 		GridBagConstraints gbc_trigger = new GridBagConstraints();
 		gbc_trigger.fill = GridBagConstraints.VERTICAL;
 		gbc_trigger.gridheight = 7;
@@ -278,7 +307,10 @@ public class Graph {
 		trigger.setBackground(new Color(238, 238, 238));
 		trigger.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent event) {
-					triggerValue = (float) (trigger.getValue()/10.0);
+				if(selectedTriggerChannel == CHANNEL1) valueChannel = sliderCH1Pos.getValue()/10;
+				else valueChannel = sliderCH2Pos.getValue()/10;
+				triggerValue = (float) (trigger.getValue()/10.0-((trigger.getMaximum()/10.0)/2)+((channel1Max/10.0)/2-valueChannel));
+				trigger(selectedTriggerChannel, current, next, index, selectedTriggerMode);
 				System.out.println(triggerValue);
 			}
 		});
@@ -345,11 +377,12 @@ public class Graph {
 		east.add(lblVoltsDivCH1, gbc_lblVoltsDivCH1);
 
 		JLabel lblUsdiv = new JLabel("μs/div");
-		// TODO lblUsdiv.setText(value + "us/div");
-		// TODO remove next line
+
 		lblUsdiv.setVisible(true);
 
 		JLabel lblCH2Resolution = new JLabel();
+		lblCH2Resolution.setText("Volt/div CH2");
+		lblCH2Resolution.setVisible(true);
 
 		GridBagConstraints gbc_lblCH2Resolution = new GridBagConstraints();
 		gbc_lblCH2Resolution.gridwidth = 2;
@@ -672,56 +705,29 @@ public class Graph {
 		gbc_lblCH1.gridy = 2;
 		south.add(lblCH1, gbc_lblCH1);
 
-		JLabel labelFreqCH1 = new JLabel("?");
-		/* if( channel 1 is off)
-		 * 		label.setText("off");
-		 * else if( channel 1 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(frequencyCH1); 
-		 */
+		labelFreqCH1 = new JLabel("?");
+
 		GridBagConstraints gbc_labelFreqCH1 = new GridBagConstraints();
 		gbc_labelFreqCH1.insets = new Insets(0, 0, 5, 5);
 		gbc_labelFreqCH1.gridx = 3;
 		gbc_labelFreqCH1.gridy = 2;
 		south.add(labelFreqCH1, gbc_labelFreqCH1);
 
-		JLabel labelMinCH1 = new JLabel("?");
-		/* if( channel 1 is off)
-		 * 		label.setText("off");
-		 * else if( channel 1 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(minCH1); 
-		 */
+		labelMinCH1 = new JLabel("?");
 		GridBagConstraints gbc_labelMinCH1 = new GridBagConstraints();
 		gbc_labelMinCH1.insets = new Insets(0, 0, 5, 5);
 		gbc_labelMinCH1.gridx = 5;
 		gbc_labelMinCH1.gridy = 2;
 		south.add(labelMinCH1, gbc_labelMinCH1);
 
-		JLabel labelMaxCH1 = new JLabel("?");
-		/* if( channel 1 is off)
-		 * 		label.setText("off");
-		 * else if( channel 1 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(maxCH1); 
-		 */
+		labelMaxCH1 = new JLabel("?");
 		GridBagConstraints gbc_labelMaxCH1 = new GridBagConstraints();
 		gbc_labelMaxCH1.insets = new Insets(0, 0, 5, 5);
 		gbc_labelMaxCH1.gridx = 7;
 		gbc_labelMaxCH1.gridy = 2;
 		south.add(labelMaxCH1, gbc_labelMaxCH1);
 
-		JLabel labelAVGCH1 = new JLabel("?");
-		/* if( channel 1 is off)
-		 * 		label.setText("off");
-		 * else if( channel 1 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(avgCH1); 
-		 */
+		labelAVGCH1 = new JLabel("?");
 		GridBagConstraints gbc_labelAVGCH1 = new GridBagConstraints();
 		gbc_labelAVGCH1.insets = new Insets(0, 0, 5, 5);
 		gbc_labelAVGCH1.gridx = 9;
@@ -735,20 +741,18 @@ public class Graph {
 		gbc_horizontalStrut.gridy = 2;
 		south.add(horizontalStrut, gbc_horizontalStrut);
 
-		JToggleButton tglbtnHrm = new JToggleButton("HRM");
+		tglbtnHrm = new JToggleButton("HRM");
+
 		GridBagConstraints gbc_tglbtnHrm = new GridBagConstraints();
 		gbc_tglbtnHrm.insets = new Insets(0, 0, 5, 5);
 		gbc_tglbtnHrm.gridx = 11;
 		gbc_tglbtnHrm.gridy = 2;
 		south.add(tglbtnHrm, gbc_tglbtnHrm);
-		tglbtnHrm.addChangeListener(new ChangeListener() {
-			public void stateChanged(ChangeEvent arg0) {
-				//TODO check whats the button state
-				/*
-				 * if (both mode) JoptionPane with error
-				 * else high resolution mode on selected channel
-				 * 
-				 */
+
+		tglbtnHrm.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				changetoHRM();
+				System.out.println(selectedChannel);
 			}
 		});
 		tglbtnHrm.setFocusable(false);
@@ -757,6 +761,11 @@ public class Graph {
 		JRadioButton rdbtnCH1 = new JRadioButton("CH1");
 		rdbtnCH1.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				labelMinCH2.setText("?");
+				labelMaxCH2.setText("?");
+				labelAVGCH2.setText("?");
+				labelFreqCH2.setText("?");
+
 				selectedTriggerChannel = CHANNEL1;
 				triggerFlag = true;
 				trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
@@ -801,6 +810,11 @@ public class Graph {
 		JRadioButton rdbtnCH2 = new JRadioButton("CH2");
 		rdbtnCH2.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
+				labelMinCH1.setText("?");
+				labelMaxCH1.setText("?");
+				labelAVGCH1.setText("?");
+				labelFreqCH1.setText("?");
+
 				selectedTriggerChannel = CHANNEL2;
 				triggerFlag = true;
 				trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
@@ -818,56 +832,28 @@ public class Graph {
 		triggerSource.add(rdbtnCH1);
 		triggerSource.add(rdbtnCH2);
 
-		JLabel labelFreqCH2 = new JLabel("?");
-		/* if( channel 2 is off)
-		 * 		label.setText("off");
-		 * else if( channel 2 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(frequencyCH2); 
-		 */
+		labelFreqCH2 = new JLabel("?");		
 		GridBagConstraints gbc_labelFreqCH2 = new GridBagConstraints();
 		gbc_labelFreqCH2.insets = new Insets(0, 0, 5, 5);
 		gbc_labelFreqCH2.gridx = 3;
 		gbc_labelFreqCH2.gridy = 3;
 		south.add(labelFreqCH2, gbc_labelFreqCH2);
 
-		JLabel labelMinCH2 = new JLabel("?");
-		/* if( channel 2 is off)
-		 * 		label.setText("off");
-		 * else if( channel 2 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(minCH2); 
-		 */
+		labelMinCH2 = new JLabel("?");
 		GridBagConstraints gbc_labelMinCH2 = new GridBagConstraints();
 		gbc_labelMinCH2.insets = new Insets(0, 0, 5, 5);
 		gbc_labelMinCH2.gridx = 5;
 		gbc_labelMinCH2.gridy = 3;
 		south.add(labelMinCH2, gbc_labelMinCH2);
 
-		JLabel labelMaxCH2 = new JLabel("?");
-		/* if( channel 2 is off)
-		 * 		label.setText("off");
-		 * else if( channel 2 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(maxCH2); 
-		 */
+		labelMaxCH2 = new JLabel("?");
 		GridBagConstraints gbc_labelMaxCH2 = new GridBagConstraints();
 		gbc_labelMaxCH2.insets = new Insets(0, 0, 5, 5);
 		gbc_labelMaxCH2.gridx = 7;
 		gbc_labelMaxCH2.gridy = 3;
 		south.add(labelMaxCH2, gbc_labelMaxCH2);
 
-		JLabel labelAVGCH2 = new JLabel("?");
-		/* if( channel 2 is off)
-		 * 		label.setText("off");
-		 * else if( channel 2 not triggered)
-		 * 			label.setText("?");
-		 * else
-		 * 		label.setText(avgCH2); 
-		 */
+		labelAVGCH2 = new JLabel("?");
 		GridBagConstraints gbc_labelAVGCH2 = new GridBagConstraints();
 		gbc_labelAVGCH2.insets = new Insets(0, 0, 5, 5);
 		gbc_labelAVGCH2.gridx = 9;
@@ -893,13 +879,13 @@ public class Graph {
 			public void actionPerformed(ActionEvent e) {
 				JToggleButton aux = (JToggleButton) e.getSource();
 				if(aux.isSelected()) {
-					//TODO button is selected --> change trigger to dsc
+					//button is selected --> change trigger to dsc
 					aux.setText("DSC");
 					selectedTriggerMode = DSC;
 					triggerFlag = true;
 				}
 				else {
-					//TODO button is unselected --> change trigger to asc
+					//button is unselected --> change trigger to asc
 					aux.setText("ASC");
 					selectedTriggerMode = ASC;
 					triggerFlag = true;
@@ -947,6 +933,9 @@ public class Graph {
 					buttonPlusCH2.setEnabled(true);
 					buttonMinusHorizontal.setEnabled(true);
 					buttonPlusHorizontal.setEnabled(true);
+					trigger.setValue(40);
+					sliderCH1Pos.setValue((int)channel1Max/2);
+					sliderCH2Pos.setValue((int)channel2Max/2);
 					trigger.setEnabled(true);
 					rdbtnCH1.setEnabled(true);
 					rdbtnCH2.setEnabled(true);
@@ -959,9 +948,6 @@ public class Graph {
 					tglbtnCH2.setEnabled(true);
 					tglbtnCH1.setSelected(true);
 					tglbtnCH2.setSelected(false);
-					trigger.setValue(40);
-					sliderCH1Pos.setValue(0);
-					sliderCH2Pos.setValue(0);
 					secondsPerDiv = 5;
 					voltPerDivCH1 = 1;
 					voltPerDivCH2 = 1;
@@ -1015,7 +1001,7 @@ public class Graph {
 									case CHANNEL1:
 										bufferChannel1[(index++) % nrSamples] = next;
 										if(selectedTriggerChannel == CHANNEL1)
-											trigger(current, next, index, selectedTriggerMode);
+											trigger(CHANNEL1, current, next, index, selectedTriggerMode);
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
@@ -1026,7 +1012,7 @@ public class Graph {
 									case CHANNEL2:
 										bufferChannel2[(index++) % nrSamples] = next;
 										if(selectedTriggerChannel == CHANNEL2) 
-											trigger(current, next, index, selectedTriggerMode);
+											trigger(CHANNEL2, current, next, index, selectedTriggerMode);
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
@@ -1047,12 +1033,12 @@ public class Graph {
 											if(receiving == 256) {
 												bufferChannel1[(index++) % (nrSamples)] = next;
 												if(selectedTriggerChannel == CHANNEL1)
-													trigger(current, next, index, selectedTriggerMode);
+													trigger(CHANNEL1, current, next, index, selectedTriggerMode);
 											}
 											else if(receiving == 257){
 												bufferChannel2[(index++) % (nrSamples)] = next;
 												if(selectedTriggerChannel == CHANNEL2)
-													trigger(current, next, index, selectedTriggerMode);
+													trigger(CHANNEL2, current, next, index, selectedTriggerMode);
 											}
 
 											if(index == nrSamples - 1) {
@@ -1113,16 +1099,20 @@ public class Graph {
 	}
 	static void checkChannelInput() {
 		if(tglbtnCH1.isSelected() && tglbtnCH2.isSelected()) {
+			tglbtnHrm.setEnabled(false);
 			selectedChannel = BOTH;
 			state = 0;
 		}
 		else if(tglbtnCH1.isSelected()){
+			tglbtnHrm.setEnabled(true);
 			selectedChannel = CHANNEL1;
 		}
 		else if(tglbtnCH2.isSelected()) {
+			tglbtnHrm.setEnabled(true);
 			selectedChannel = CHANNEL2;
 		}
 		else {
+			tglbtnHrm.setEnabled(false);
 			selectedChannel = NONE;
 			channel1.clear();
 			channel2.clear();
@@ -1132,42 +1122,194 @@ public class Graph {
 			//System.out.println(selectedChannel);
 			chosenPort.getOutputStream().write(selectedChannel);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		channel1.clear();
 		channel2.clear();
+		index = 0;
+		triggerFlag = true;
+	}
+	static void changetoHRM() {
+		try {
+			if(tglbtnHrm.isSelected()) {
+				if(tglbtnCH1.isSelected()) {
+					tglbtnCH2.setEnabled(false);
+				}
+				else if(tglbtnCH2.isSelected()) {
+					tglbtnCH1.setEnabled(false);
+				}
+				chosenPort.getOutputStream().write(HRM);
+				//nrSamples = nrSamples * 3;
+			}
+			else {
+				tglbtnCH1.setEnabled(true);
+				tglbtnCH2.setEnabled(true);
+				//nrSamples = nrSamples / 3;
+				chosenPort.getOutputStream().write(NORMAL);
+			}
+			channel1.clear();
+			channel2.clear();
+			index = 0;
+			triggerFlag = true;
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 	}
 	static void drawChannel(int channelID, int triggerIndex) {
 		//channelID 0 -> channel1 / 1 -> channel2 / 2 -> both channels
 		int x = 0;
 		for(int i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
 			switch(channelID) {
-			case CHANNEL1: channel1.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels); break;
-			case CHANNEL2: channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels); break;
-			case BOTH: channel1.addOrUpdate((x) * (float) nrDiv / (nrSamplesToDraw), bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels); 
-			channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels); 
-			break;
+			case CHANNEL1:
+				channel1.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels) + ch1PosValue ); 
+				break;
+			case CHANNEL2:
+				channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels) + ch2PosValue);
+				break;
+			case BOTH: 
+				channel1.addOrUpdate((x) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels + ch1PosValue)); 
+				channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels + ch2PosValue)); 
+				break;
 			}
 		}
 	}
-	static void trigger(int current, int next, int index, int mode) {
+	static void trigger(int channelID, int current, int next, int index, int mode) {
 		switch(mode) {
 		case ASC:
 			//System.out.println("Tentou triggar");
-			if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
+			if(triggerFlag && current > (int)((triggerValue * nrLevels / fullScale)) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
 				triggerIndex = index - 1;
 				triggerFlag = false;
-				//System.out.println("Trigou");
+				System.out.println("Trigou");
+				min(channelID, triggerIndex);
+				max(channelID, triggerIndex);
+				avg(channelID, triggerIndex);
+				freq(channelID, triggerIndex);
+			}
+			else {
+				/*System.out.println("LIMPOU");
+				labelMinCH1.setText("?");
+				labelMaxCH1.setText("?");
+				labelAVGCH1.setText("?");
+				labelFreqCH1.setText("?");
+				labelMinCH2.setText("?");
+				labelMaxCH2.setText("?");
+				labelAVGCH2.setText("?");
+				labelFreqCH2.setText("?");*/
 			}
 			break;
 		case DSC:
+
 			if(triggerFlag && current > (int)(triggerValue * nrLevels / fullScale) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next < current) {
 				triggerIndex = index - 1;
 				triggerFlag = false;
+				min(channelID, triggerIndex);
+				max(channelID, triggerIndex);
+				avg(channelID, triggerIndex);
+				freq(channelID, triggerIndex);
+			}
+			else {
+				labelMinCH1.setText("?");
+				labelMaxCH1.setText("?");
+				labelAVGCH1.setText("?");
+				labelFreqCH1.setText("?");
+				labelMinCH2.setText("?");
+				labelMaxCH2.setText("?");
+				labelAVGCH2.setText("?");
+				labelFreqCH2.setText("?");
 			}
 			break;
 		}
+	}
+	static void min(int channelID, int triggerIndex) {
+		int min;
+		if(channelID == CHANNEL1) {
+			min = bufferChannel1[triggerIndex];
+			for(int i = triggerIndex + 1; i <= triggerIndex + nrSamplesToDraw; i++) {
+				if(bufferChannel1[i] < min) {
+					min = bufferChannel1[i];
+				}
+			}
+			labelMinCH1.setText(String.format("%.2f V", min * fullScale / nrLevels));
+		}
+		else if(channelID == CHANNEL2) {
+			min = bufferChannel2[triggerIndex];
+			for(int i = triggerIndex + 1; i <= triggerIndex + nrSamplesToDraw; i++) {
+				if(bufferChannel2[i] < min) {
+					min = bufferChannel2[i];
+				}
+			}			
+			labelMinCH2.setText(String.format("%.2f V", min * fullScale / nrLevels));
+		}
+	}
+	static void max(int channelID, int triggerIndex) {
+		int max;
+		if(channelID == CHANNEL1) {
+			max = bufferChannel1[triggerIndex];
+			for(int i = triggerIndex + 1; i <= triggerIndex + nrSamplesToDraw; i++) {
+				if(bufferChannel1[i] > max) {
+					max = bufferChannel1[i];
+				}
+			}
+			labelMaxCH1.setText(String.format("%.2f V", max * fullScale / nrLevels));
+		}
+		else if(channelID == CHANNEL2) {
+			max = bufferChannel2[triggerIndex];
+			for(int i = triggerIndex + 1; i <= triggerIndex + nrSamplesToDraw; i++) {
+				if(bufferChannel2[i] > max) {
+					max = bufferChannel2[i];
+				}
+			}
+			labelMaxCH2.setText(String.format("%.2f V", max * fullScale / nrLevels));
+		}
+	}
+	static void avg(int channelID, int triggerIndex) {
+		int sum = 0;
+		if(channelID == CHANNEL1) {
+			for(int i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
+				sum += bufferChannel1[i];
+			}
+			labelAVGCH1.setText(String.format("%.2f V", ((float)sum / nrSamplesToDraw) * fullScale / nrLevels));
+		}
+		else if(channelID == CHANNEL2) {
+			for(int i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
+				sum += bufferChannel2[i];
+			}
+			labelAVGCH2.setText(String.format("%.2f V", ((float)sum / nrSamplesToDraw) * fullScale / nrLevels));
+		}
+	}
+	static void freq(int channelID, int triggerIndex) {
+		int count = 0;
+		int i = 0;
+		if(channelID == CHANNEL1) {
+			for(i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
+				if((bufferChannel1[i] < bufferChannel1[triggerIndex] + 4) && (bufferChannel1[i] > bufferChannel1[triggerIndex] - 4))
+					count++;
+				if(count == 2) break;
+			}
+			System.out.println("FORA DO FOR");
 
+			System.out.println(i);
+			if(count == 2)
+				labelFreqCH1.setText(String.format("%.2f Hz", 1.0/((i-triggerIndex)*(periodPerSample / 1000000.0))));
+			else	
+				labelFreqCH1.setText("?");
+			count = 0;
+		}
+		else if(channelID == CHANNEL2) {
+			for(i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
+				if((bufferChannel2[i] < bufferChannel2[triggerIndex] + 4) && (bufferChannel2[i] > bufferChannel2[triggerIndex] - 4))
+					count++;
+				if(count == 2) break;
+			}
+			System.out.println("FORA DO FOR");
+
+			System.out.println(i);
+			if(count == 2)
+				labelFreqCH2.setText(String.format("%.2f Hz", 1.0/((i-triggerIndex)*(periodPerSample / 1000000.0))));
+			else	
+				labelFreqCH2.setText("?");
+			count = 0;
+		}
 	}
 }
