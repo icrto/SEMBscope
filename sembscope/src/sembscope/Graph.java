@@ -80,6 +80,8 @@ public class Graph {
 	static boolean triggerFlag = true;
 	static int[] bufferChannel1 = new int[nrSamples];
 	static int[] bufferChannel2 = new int[nrSamples];
+	static int[] bufferChannel1HRM = new int[nrSamples*3];
+	static int[] bufferChannel2HRM = new int[nrSamples*3];
 	static int selectedChannel = CHANNEL1;
 	static int selectedTriggerChannel = CHANNEL1;
 
@@ -124,9 +126,6 @@ public class Graph {
 	static JSlider sliderCH1Pos;
 	static JSlider sliderCH2Pos;
 	static JSlider trigger;
-
-	static JLabel labelFreqCH1;
-	static JLabel labelFreqCH2;
 	static JLabel labelMinCH1;
 	static JLabel labelMinCH2;
 	static JLabel labelMaxCH1;
@@ -622,9 +621,9 @@ public class Graph {
 		south.setBounds(new Rectangle(0, 0, 0, 31));
 		window.getContentPane().add(south, BorderLayout.SOUTH);
 		GridBagLayout gbl_south = new GridBagLayout();
-		gbl_south.columnWidths = new int[]{0, 114, 40, 80, 60, 80, 60, 80, 61, 80, 62, 120, 0, 0, 0};
+		gbl_south.columnWidths = new int[]{0, 114, 40, 60, 80, 60, 80, 61, 80, 62, 120, 0, 0, 0};
 		gbl_south.rowHeights = new int[]{11, 0, 35, 27, 28, 0, 0};
-		gbl_south.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, Double.MIN_VALUE};
+		gbl_south.columnWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, Double.MIN_VALUE};
 		gbl_south.rowWeights = new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, Double.MIN_VALUE};
 		south.setLayout(gbl_south);
 
@@ -642,59 +641,52 @@ public class Graph {
 		gbc_verticalStrut_1.gridy = 0;
 		south.add(verticalStrut_1, gbc_verticalStrut_1);
 
-		JLabel lblFrequency = new JLabel("Frequency");
-		GridBagConstraints gbc_lblFrequency = new GridBagConstraints();
-		gbc_lblFrequency.insets = new Insets(0, 0, 5, 5);
-		gbc_lblFrequency.gridx = 3;
-		gbc_lblFrequency.gridy = 1;
-		south.add(lblFrequency, gbc_lblFrequency);
-
 		Component horizontalGlue_2 = Box.createHorizontalGlue();
 		GridBagConstraints gbc_horizontalGlue_2 = new GridBagConstraints();
 		gbc_horizontalGlue_2.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalGlue_2.gridx = 4;
+		gbc_horizontalGlue_2.gridx = 3;
 		gbc_horizontalGlue_2.gridy = 1;
 		south.add(horizontalGlue_2, gbc_horizontalGlue_2);
 
 		JLabel lblMin = new JLabel("Min");
 		GridBagConstraints gbc_lblMin = new GridBagConstraints();
 		gbc_lblMin.insets = new Insets(0, 0, 5, 5);
-		gbc_lblMin.gridx = 5;
+		gbc_lblMin.gridx = 4;
 		gbc_lblMin.gridy = 1;
 		south.add(lblMin, gbc_lblMin);
 
 		Component horizontalGlue = Box.createHorizontalGlue();
 		GridBagConstraints gbc_horizontalGlue = new GridBagConstraints();
 		gbc_horizontalGlue.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalGlue.gridx = 6;
+		gbc_horizontalGlue.gridx = 5;
 		gbc_horizontalGlue.gridy = 1;
 		south.add(horizontalGlue, gbc_horizontalGlue);
 
 		JLabel lblMax = new JLabel("Max");
 		GridBagConstraints gbc_lblMax = new GridBagConstraints();
 		gbc_lblMax.insets = new Insets(0, 0, 5, 5);
-		gbc_lblMax.gridx = 7;
+		gbc_lblMax.gridx = 6;
 		gbc_lblMax.gridy = 1;
 		south.add(lblMax, gbc_lblMax);
 
 		Component horizontalGlue_1 = Box.createHorizontalGlue();
 		GridBagConstraints gbc_horizontalGlue_1 = new GridBagConstraints();
 		gbc_horizontalGlue_1.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalGlue_1.gridx = 8;
+		gbc_horizontalGlue_1.gridx = 7;
 		gbc_horizontalGlue_1.gridy = 1;
 		south.add(horizontalGlue_1, gbc_horizontalGlue_1);
 
 		JLabel lblAvg = new JLabel("AVG");
 		GridBagConstraints gbc_lblAvg = new GridBagConstraints();
 		gbc_lblAvg.insets = new Insets(0, 0, 5, 5);
-		gbc_lblAvg.gridx = 9;
+		gbc_lblAvg.gridx = 8;
 		gbc_lblAvg.gridy = 1;
 		south.add(lblAvg, gbc_lblAvg);
 
 		JLabel lblTriggerSource = new JLabel("Trigger source");
 		GridBagConstraints gbc_lblTriggerSource = new GridBagConstraints();
 		gbc_lblTriggerSource.insets = new Insets(0, 0, 5, 5);
-		gbc_lblTriggerSource.gridx = 12;
+		gbc_lblTriggerSource.gridx = 11;
 		gbc_lblTriggerSource.gridy = 1;
 		south.add(lblTriggerSource, gbc_lblTriggerSource);
 
@@ -705,39 +697,31 @@ public class Graph {
 		gbc_lblCH1.gridy = 2;
 		south.add(lblCH1, gbc_lblCH1);
 
-		labelFreqCH1 = new JLabel("?");
-
-		GridBagConstraints gbc_labelFreqCH1 = new GridBagConstraints();
-		gbc_labelFreqCH1.insets = new Insets(0, 0, 5, 5);
-		gbc_labelFreqCH1.gridx = 3;
-		gbc_labelFreqCH1.gridy = 2;
-		south.add(labelFreqCH1, gbc_labelFreqCH1);
-
 		labelMinCH1 = new JLabel("?");
 		GridBagConstraints gbc_labelMinCH1 = new GridBagConstraints();
 		gbc_labelMinCH1.insets = new Insets(0, 0, 5, 5);
-		gbc_labelMinCH1.gridx = 5;
+		gbc_labelMinCH1.gridx = 4;
 		gbc_labelMinCH1.gridy = 2;
 		south.add(labelMinCH1, gbc_labelMinCH1);
 
 		labelMaxCH1 = new JLabel("?");
 		GridBagConstraints gbc_labelMaxCH1 = new GridBagConstraints();
 		gbc_labelMaxCH1.insets = new Insets(0, 0, 5, 5);
-		gbc_labelMaxCH1.gridx = 7;
+		gbc_labelMaxCH1.gridx = 6;
 		gbc_labelMaxCH1.gridy = 2;
 		south.add(labelMaxCH1, gbc_labelMaxCH1);
 
 		labelAVGCH1 = new JLabel("?");
 		GridBagConstraints gbc_labelAVGCH1 = new GridBagConstraints();
 		gbc_labelAVGCH1.insets = new Insets(0, 0, 5, 5);
-		gbc_labelAVGCH1.gridx = 9;
+		gbc_labelAVGCH1.gridx = 8;
 		gbc_labelAVGCH1.gridy = 2;
 		south.add(labelAVGCH1, gbc_labelAVGCH1);
 
 		Component horizontalStrut = Box.createHorizontalStrut(20);
 		GridBagConstraints gbc_horizontalStrut = new GridBagConstraints();
 		gbc_horizontalStrut.insets = new Insets(0, 0, 5, 5);
-		gbc_horizontalStrut.gridx = 10;
+		gbc_horizontalStrut.gridx = 9;
 		gbc_horizontalStrut.gridy = 2;
 		south.add(horizontalStrut, gbc_horizontalStrut);
 
@@ -745,7 +729,7 @@ public class Graph {
 
 		GridBagConstraints gbc_tglbtnHrm = new GridBagConstraints();
 		gbc_tglbtnHrm.insets = new Insets(0, 0, 5, 5);
-		gbc_tglbtnHrm.gridx = 11;
+		gbc_tglbtnHrm.gridx = 10;
 		gbc_tglbtnHrm.gridy = 2;
 		south.add(tglbtnHrm, gbc_tglbtnHrm);
 
@@ -764,8 +748,7 @@ public class Graph {
 				labelMinCH2.setText("?");
 				labelMaxCH2.setText("?");
 				labelAVGCH2.setText("?");
-				labelFreqCH2.setText("?");
-
+				
 				selectedTriggerChannel = CHANNEL1;
 				triggerFlag = true;
 				trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
@@ -775,7 +758,7 @@ public class Graph {
 		rdbtnCH1.setSelected(true);
 		GridBagConstraints gbc_rdbtnCH1 = new GridBagConstraints();
 		gbc_rdbtnCH1.insets = new Insets(0, 0, 5, 5);
-		gbc_rdbtnCH1.gridx = 12;
+		gbc_rdbtnCH1.gridx = 11;
 		gbc_rdbtnCH1.gridy = 2;
 		south.add(rdbtnCH1, gbc_rdbtnCH1);
 
@@ -803,7 +786,7 @@ public class Graph {
 		GridBagConstraints gbc_tglbtnRun = new GridBagConstraints();
 		gbc_tglbtnRun.gridheight = 2;
 		gbc_tglbtnRun.insets = new Insets(0, 0, 5, 5);
-		gbc_tglbtnRun.gridx = 11;
+		gbc_tglbtnRun.gridx = 10;
 		gbc_tglbtnRun.gridy = 3;
 		south.add(tglbtnRun, gbc_tglbtnRun);
 
@@ -813,8 +796,7 @@ public class Graph {
 				labelMinCH1.setText("?");
 				labelMaxCH1.setText("?");
 				labelAVGCH1.setText("?");
-				labelFreqCH1.setText("?");
-
+				
 				selectedTriggerChannel = CHANNEL2;
 				triggerFlag = true;
 				trigger.setMaximum((int) ((1.0/voltPerDivCH2)*Amplitude*10));
@@ -823,7 +805,7 @@ public class Graph {
 		rdbtnCH2.setFocusable(false);
 		GridBagConstraints gbc_rdbtnCH2 = new GridBagConstraints();
 		gbc_rdbtnCH2.insets = new Insets(0, 0, 5, 5);
-		gbc_rdbtnCH2.gridx = 12;
+		gbc_rdbtnCH2.gridx = 11;
 		gbc_rdbtnCH2.gridy = 3;
 		south.add(rdbtnCH2, gbc_rdbtnCH2);
 
@@ -832,31 +814,24 @@ public class Graph {
 		triggerSource.add(rdbtnCH1);
 		triggerSource.add(rdbtnCH2);
 
-		labelFreqCH2 = new JLabel("?");		
-		GridBagConstraints gbc_labelFreqCH2 = new GridBagConstraints();
-		gbc_labelFreqCH2.insets = new Insets(0, 0, 5, 5);
-		gbc_labelFreqCH2.gridx = 3;
-		gbc_labelFreqCH2.gridy = 3;
-		south.add(labelFreqCH2, gbc_labelFreqCH2);
-
 		labelMinCH2 = new JLabel("?");
 		GridBagConstraints gbc_labelMinCH2 = new GridBagConstraints();
 		gbc_labelMinCH2.insets = new Insets(0, 0, 5, 5);
-		gbc_labelMinCH2.gridx = 5;
+		gbc_labelMinCH2.gridx = 4;
 		gbc_labelMinCH2.gridy = 3;
 		south.add(labelMinCH2, gbc_labelMinCH2);
 
 		labelMaxCH2 = new JLabel("?");
 		GridBagConstraints gbc_labelMaxCH2 = new GridBagConstraints();
 		gbc_labelMaxCH2.insets = new Insets(0, 0, 5, 5);
-		gbc_labelMaxCH2.gridx = 7;
+		gbc_labelMaxCH2.gridx = 6;
 		gbc_labelMaxCH2.gridy = 3;
 		south.add(labelMaxCH2, gbc_labelMaxCH2);
 
 		labelAVGCH2 = new JLabel("?");
 		GridBagConstraints gbc_labelAVGCH2 = new GridBagConstraints();
 		gbc_labelAVGCH2.insets = new Insets(0, 0, 5, 5);
-		gbc_labelAVGCH2.gridx = 9;
+		gbc_labelAVGCH2.gridx = 8;
 		gbc_labelAVGCH2.gridy = 3;
 		south.add(labelAVGCH2, gbc_labelAVGCH2);
 
@@ -872,7 +847,7 @@ public class Graph {
 		JToggleButton tglbtnAsc = new JToggleButton("ASC");
 		GridBagConstraints gbc_tglbtnAsc = new GridBagConstraints();
 		gbc_tglbtnAsc.insets = new Insets(0, 0, 5, 5);
-		gbc_tglbtnAsc.gridx = 12;
+		gbc_tglbtnAsc.gridx = 11;
 		gbc_tglbtnAsc.gridy = 4;
 		south.add(tglbtnAsc, gbc_tglbtnAsc);
 		tglbtnAsc.addActionListener(new ActionListener() {
@@ -897,7 +872,7 @@ public class Graph {
 		Component verticalStrut_3 = Box.createVerticalStrut(20);
 		GridBagConstraints gbc_verticalStrut_3 = new GridBagConstraints();
 		gbc_verticalStrut_3.insets = new Insets(0, 0, 0, 5);
-		gbc_verticalStrut_3.gridx = 6;
+		gbc_verticalStrut_3.gridx = 5;
 		gbc_verticalStrut_3.gridy = 5;
 		south.add(verticalStrut_3, gbc_verticalStrut_3);
 
@@ -999,20 +974,35 @@ public class Graph {
 
 									switch(selectedChannel) {
 									case CHANNEL1:
-										bufferChannel1[(index++) % nrSamples] = next;
-										if(selectedTriggerChannel == CHANNEL1)
+										if(tglbtnHrm.isSelected()) {
+											bufferChannel1HRM[(index++) % nrSamples] = next;
+
+										}
+										else {
+											bufferChannel1[(index++) % nrSamples] = next;
+										}
+										if(selectedTriggerChannel == CHANNEL1) {
 											trigger(CHANNEL1, current, next, index, selectedTriggerMode);
+										}
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
+											System.out.println("A DESENHAR");
 											if(run == START) drawChannel(CHANNEL1, triggerIndex);
 										}
 										current = next;
 										break;
 									case CHANNEL2:
-										bufferChannel2[(index++) % nrSamples] = next;
-										if(selectedTriggerChannel == CHANNEL2) 
+										if(tglbtnHrm.isSelected()) {
+											bufferChannel2HRM[(index++) % nrSamples] = next;
+
+										}
+										else {
+											bufferChannel2[(index++) % nrSamples] = next;
+										}
+										if(selectedTriggerChannel == CHANNEL2) { 
 											trigger(CHANNEL2, current, next, index, selectedTriggerMode);
+										}
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
@@ -1139,13 +1129,19 @@ public class Graph {
 					tglbtnCH1.setEnabled(false);
 				}
 				chosenPort.getOutputStream().write(HRM);
-				//nrSamples = nrSamples * 3;
+				nrSamples = nrSamples * 3;
+				periodPerSample = periodPerSample / 3;
+				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
+				System.out.println(periodPerSample);
 			}
 			else {
 				tglbtnCH1.setEnabled(true);
 				tglbtnCH2.setEnabled(true);
-				//nrSamples = nrSamples / 3;
+				nrSamples = nrSamples / 3;
+				periodPerSample = periodPerSample * 3;
+				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
 				chosenPort.getOutputStream().write(NORMAL);
+				System.out.println(periodPerSample);
 			}
 			channel1.clear();
 			channel2.clear();
@@ -1161,10 +1157,22 @@ public class Graph {
 		for(int i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
 			switch(channelID) {
 			case CHANNEL1:
-				channel1.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels) + ch1PosValue ); 
+				if(tglbtnHrm.isSelected()) {
+					channel1.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel1HRM[i] * voltPerDivCH1 * fullScale / nrLevels) + ch1PosValue ); 
+				}
+				else {
+					channel1.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels) + ch1PosValue ); 
+
+				}
 				break;
 			case CHANNEL2:
-				channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels) + ch2PosValue);
+				if(tglbtnHrm.isSelected()) {
+					channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel2HRM[i] * voltPerDivCH2 * fullScale / nrLevels) + ch2PosValue ); 
+				}
+				else {
+					channel2.addOrUpdate((x++) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel2[i] * voltPerDivCH2 * fullScale / nrLevels) + ch2PosValue ); 
+
+				}
 				break;
 			case BOTH: 
 				channel1.addOrUpdate((x) * (float) nrDiv / (nrSamplesToDraw), (bufferChannel1[i] * voltPerDivCH1 * fullScale / nrLevels + ch1PosValue)); 
@@ -1184,7 +1192,7 @@ public class Graph {
 				min(channelID, triggerIndex);
 				max(channelID, triggerIndex);
 				avg(channelID, triggerIndex);
-				freq(channelID, triggerIndex);
+				//freq(channelID, triggerIndex);
 			}
 			else {
 				/*System.out.println("LIMPOU");
@@ -1206,18 +1214,15 @@ public class Graph {
 				min(channelID, triggerIndex);
 				max(channelID, triggerIndex);
 				avg(channelID, triggerIndex);
-				freq(channelID, triggerIndex);
 			}
 			else {
 				labelMinCH1.setText("?");
 				labelMaxCH1.setText("?");
 				labelAVGCH1.setText("?");
-				labelFreqCH1.setText("?");
 				labelMinCH2.setText("?");
 				labelMaxCH2.setText("?");
 				labelAVGCH2.setText("?");
-				labelFreqCH2.setText("?");
-			}
+				}
 			break;
 		}
 	}
@@ -1278,38 +1283,5 @@ public class Graph {
 			labelAVGCH2.setText(String.format("%.2f V", ((float)sum / nrSamplesToDraw) * fullScale / nrLevels));
 		}
 	}
-	static void freq(int channelID, int triggerIndex) {
-		int count = 0;
-		int i = 0;
-		if(channelID == CHANNEL1) {
-			for(i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
-				if((bufferChannel1[i] < bufferChannel1[triggerIndex] + 4) && (bufferChannel1[i] > bufferChannel1[triggerIndex] - 4))
-					count++;
-				if(count == 2) break;
-			}
-			System.out.println("FORA DO FOR");
 
-			System.out.println(i);
-			if(count == 2)
-				labelFreqCH1.setText(String.format("%.2f Hz", 1.0/((i-triggerIndex)*(periodPerSample / 1000000.0))));
-			else	
-				labelFreqCH1.setText("?");
-			count = 0;
-		}
-		else if(channelID == CHANNEL2) {
-			for(i = triggerIndex; i <= triggerIndex + nrSamplesToDraw; i++) {
-				if((bufferChannel2[i] < bufferChannel2[triggerIndex] + 4) && (bufferChannel2[i] > bufferChannel2[triggerIndex] - 4))
-					count++;
-				if(count == 2) break;
-			}
-			System.out.println("FORA DO FOR");
-
-			System.out.println(i);
-			if(count == 2)
-				labelFreqCH2.setText(String.format("%.2f Hz", 1.0/((i-triggerIndex)*(periodPerSample / 1000000.0))));
-			else	
-				labelFreqCH2.setText("?");
-			count = 0;
-		}
-	}
 }
