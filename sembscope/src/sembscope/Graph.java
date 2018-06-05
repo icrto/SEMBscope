@@ -213,7 +213,6 @@ public class Graph {
 		sliderCH1Pos.addChangeListener(new ChangeListener() {
 			public void stateChanged(ChangeEvent event) {
 				ch1PosValue = (float)(sliderCH1Pos.getValue()/10.0);
-				System.out.println(ch1PosValue);
 				trigger(selectedTriggerChannel, current, next, index, selectedTriggerMode);
 			}
 		});
@@ -256,7 +255,6 @@ public class Graph {
 			public void stateChanged(ChangeEvent event) {
 				ch2PosValue = (float)(sliderCH2Pos.getValue()/10.0);
 				trigger(selectedTriggerChannel, current, next, index, selectedTriggerMode);
-				System.out.println(ch2PosValue);
 			}
 		});
 		GridBagConstraints gbc_sliderCH2Pos = new GridBagConstraints();
@@ -310,7 +308,6 @@ public class Graph {
 				else valueChannel = sliderCH2Pos.getValue()/10;
 				triggerValue = (float) (trigger.getValue()/10.0-((trigger.getMaximum()/10.0)/2)+((channel1Max/10.0)/2-valueChannel));
 				trigger(selectedTriggerChannel, current, next, index, selectedTriggerMode);
-				System.out.println(triggerValue);
 			}
 		});
 
@@ -352,7 +349,6 @@ public class Graph {
 				}
 				else {
 					voltPerDivCH1 /= factorVertical;
-					System.out.println("ola " + voltPerDivCH1);
 					lblVoltsDivCH1.setText(1.0/voltPerDivCH1 + " V/div");
 					if(selectedTriggerChannel == CHANNEL1)
 						trigger.setMaximum((int)((1.0/voltPerDivCH1)*Amplitude*10));
@@ -484,7 +480,6 @@ public class Graph {
 				}
 				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
 				lblUsdiv.setText(secondsPerDiv + " ms/div");
-				//System.out.println((double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
 				channel1.clear();
 				channel2.clear();
 			}
@@ -513,7 +508,6 @@ public class Graph {
 					secondsPerDiv = 2;
 				}
 				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
-				//System.out.println(nrSamplesToDraw);
 				lblUsdiv.setText(secondsPerDiv + " ms/div");
 				channel1.clear();
 				channel2.clear();
@@ -736,7 +730,6 @@ public class Graph {
 		tglbtnHrm.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				changetoHRM();
-				System.out.println(selectedChannel);
 			}
 		});
 		tglbtnHrm.setFocusable(false);
@@ -941,7 +934,6 @@ public class Graph {
 					chosenPort.setComPortTimeouts(SerialPort.TIMEOUT_SCANNER, 0, 0);
 					chosenPort.setBaudRate(230400);
 					if(chosenPort.openPort()) {
-						System.out.println(chosenPort.getBaudRate());
 						connect.setText("Disconnect");
 						portList.setEnabled(false);
 						checkChannelInput();
@@ -987,7 +979,6 @@ public class Graph {
 										if(index == nrSamples) {	// buffer is full, restart
 											triggerFlag = true;
 											index = 0;
-											System.out.println("A DESENHAR");
 											if(run == START) drawChannel(CHANNEL1, triggerIndex);
 										}
 										current = next;
@@ -1014,7 +1005,6 @@ public class Graph {
 										if(state == 0) {
 											index = 0;
 											if(next == 256 || next == 257) { //flag
-												//System.out.println(next);
 												receiving  = next;
 												state = 1;
 											}
@@ -1109,7 +1099,6 @@ public class Graph {
 			return;
 		}
 		try {
-			//System.out.println(selectedChannel);
 			chosenPort.getOutputStream().write(selectedChannel);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -1130,18 +1119,19 @@ public class Graph {
 				}
 				chosenPort.getOutputStream().write(HRM);
 				nrSamples = nrSamples * 3;
-				periodPerSample = periodPerSample / 3;
+				nrTicks = nrTicks / 3;
+				periodPerSample = tickPeriod * nrTicks;
 				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
-				System.out.println(periodPerSample);
 			}
 			else {
 				tglbtnCH1.setEnabled(true);
 				tglbtnCH2.setEnabled(true);
 				nrSamples = nrSamples / 3;
-				periodPerSample = periodPerSample * 3;
+				nrTicks = nrTicks * 3;
+
+				periodPerSample = tickPeriod * nrTicks;
 				nrSamplesToDraw = (int)( (double)(secondsPerDiv * nrDiv) / (periodPerSample / 1000.0));
 				chosenPort.getOutputStream().write(NORMAL);
-				System.out.println(periodPerSample);
 			}
 			channel1.clear();
 			channel2.clear();
@@ -1184,26 +1174,12 @@ public class Graph {
 	static void trigger(int channelID, int current, int next, int index, int mode) {
 		switch(mode) {
 		case ASC:
-			//System.out.println("Tentou triggar");
 			if(triggerFlag && current > (int)((triggerValue * nrLevels / fullScale)) - 2 && current < (int)(triggerValue * nrLevels / fullScale) + 2 &&  next > current) {
 				triggerIndex = index - 1;
 				triggerFlag = false;
-				System.out.println("Trigou");
 				min(channelID, triggerIndex);
 				max(channelID, triggerIndex);
 				avg(channelID, triggerIndex);
-				//freq(channelID, triggerIndex);
-			}
-			else {
-				/*System.out.println("LIMPOU");
-				labelMinCH1.setText("?");
-				labelMaxCH1.setText("?");
-				labelAVGCH1.setText("?");
-				labelFreqCH1.setText("?");
-				labelMinCH2.setText("?");
-				labelMaxCH2.setText("?");
-				labelAVGCH2.setText("?");
-				labelFreqCH2.setText("?");*/
 			}
 			break;
 		case DSC:
